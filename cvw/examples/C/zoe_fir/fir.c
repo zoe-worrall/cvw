@@ -21,18 +21,20 @@ int32_t mul_q31(int a, int b) {
 // inputs in Q1.31 format
 // void fir(int x[], int c[], int y[], int n, int m) {
 // 	// your code here, use add_q31 and mul_q31
-
+// void fir(int x[], int c[], int y[], int n, int m) {
 //     for (int j=0; j<=n-m; j += 1) {
 //         y[j] = 0;
 //         for (int i=0; i<m; i += 1) {
+//             printf("X values: %x, xindex: %x --- C values: %x, Y value: %x\n", x[j - i + m - 1], j-i+m-1, c[i], y[j]);
 //             y[j] = add_q31(y[j], mul_q31(c[i], x[j - i + m - 1]));
 //         }
+//         printf("\n");
 //     }
 //     return;
 // }
 
-        //  x    c    y     n   m
-extern fir(int, int, int, int, int)
+            //  x            c          y         n   m
+extern void fir(int32_t *, int32_t *, int32_t *, int, int);
 
 // extern void fir(int x[], int c[], int y[], int n, int m)
 
