@@ -9,7 +9,7 @@ $(TARGET): $(TARGET).S
 	-nostartfiles -T ../../link/link.ld $(TARGET).S
 
 sim:
-	spike +signature=$(TARGET).signature.output +signature-granularity=8 $(TARGET)
+	spike +signature=$(TARGET).signature.output +signature-granularity=8 $(TARGET) -d
 	diff-ignore-case $(TARGET).signature.output $(TARGET).reference_output || exit
 	echo "Signature matches! Success!"  
 

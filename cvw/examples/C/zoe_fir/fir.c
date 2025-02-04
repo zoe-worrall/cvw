@@ -19,17 +19,22 @@ int32_t mul_q31(int a, int b) {
 // n is the length of x, m is the length of c
 // y[j] = c[0]*x[j] + c[1]*x[j+1] + ... + c[m-1]*x[j+m-1]
 // inputs in Q1.31 format
-void fir(int x[], int c[], int y[], int n, int m) {
-	// your code here, use add_q31 and mul_q31
+// void fir(int x[], int c[], int y[], int n, int m) {
+// 	// your code here, use add_q31 and mul_q31
 
-    for (int j=0; j<=n-m; j += 1) {
-        y[j] = 0;
-        for (int i=0; i<m; i += 1) {
-            y[j] = add_q31(y[j], mul_q31(c[i], x[j - i + m - 1]));
-        }
-    }
-    return;
-}
+//     for (int j=0; j<=n-m; j += 1) {
+//         y[j] = 0;
+//         for (int i=0; i<m; i += 1) {
+//             y[j] = add_q31(y[j], mul_q31(c[i], x[j - i + m - 1]));
+//         }
+//     }
+//     return;
+// }
+
+        //  x    c    y     n   m
+extern fir(int, int, int, int, int)
+
+// extern void fir(int x[], int c[], int y[], int n, int m)
 
 int main(void) {
     // printf("we testing :D");
