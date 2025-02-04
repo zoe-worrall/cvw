@@ -24,6 +24,7 @@ fir:
     # a0 = x, a1 = c, a2 = y, a3 = n, a4 = m
 
     sub s2, a3, a4      # s2 = n-m
+    addi s3, a4, -1     # s3 = m-1
 
 # fir_2:
 #     li s8, 0x500000000
@@ -31,7 +32,7 @@ fir:
     j fir_2
 
 fir_1:
-    bgt s0, s2, done     # if j > m-n, go to done loop
+    bge s0, s2, done     # if j > m-n, go to done loop
     
     # calculate address j
     mul t1, s0, t3     # index from j (diff * 4)
@@ -43,7 +44,7 @@ fir_1:
     addi s0, s0, 1       # set a4 (i.e. j)++
 
 fir_2:
-    bgt s1, a4, fir_1    # if i > m, go to outer for loop
+    bge s1, s3, fir_1    # if i >= m (so loop from 0 to m-1), go to outer for loop
     
     sub t0, s0, s1       # save j - i
     addi t1, a4, -1      # save m-1
@@ -68,19 +69,21 @@ after_mul:
     # calculate address j
     mul t1, s0, t3     # index from j (diff * 4)
     add t1, t1, a2     # we're at a2 + t1  (j*4 + a2)
-    lw s8, 0(t1)       # save into s8 index
+    lw s8, 0(t1)       # save y[j] to s8 index
 
     j add_q31
 after_add:
 
     # store word output back into index
-    sw x3, 0(t1)
+    li t3, 4           # cause i'm pretty sure temp resets itself
+    mul t1, s0, t3     # index from j (diff * 4)
+    add t1, t1, a2     # we're at a2 + t1  (j*4 + a2)
+    sw x3, 0(t1)       # save x3 value into the array at our current imdex
     mv s11, x3
 
-    addi s1, s1, 1  # i++
+    addi s1, s1, 1     # i++
 
     j fir_2            # start fir_2 loop again
-
 
 mul_q31:
     slli s9, s9, 32
@@ -89,10 +92,12 @@ mul_q31:
     srai s8, s8, 32
     mul x3, s9, s8    # save s8+s9 in s10
     srai x3, x3, 31
-    # j after_mul
+    j after_mul
 
 add_q31:
     add x3, s9, s8    # save s5+s6 in s7
+    slli x3, x3, 32
+    srai x3, x3, 32
     j after_add
 
 done:
