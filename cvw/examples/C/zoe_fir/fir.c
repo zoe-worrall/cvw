@@ -14,7 +14,6 @@ int32_t mul_q31(int a, int b) {
     return midres;
 }
 
-
 // low pass filter x with coefficients c, result in y
 // n is the length of x, m is the length of c
 // y[j] = c[0]*x[j] + c[1]*x[j+1] + ... + c[m-1]*x[j+m-1]
@@ -24,13 +23,12 @@ int32_t mul_q31(int a, int b) {
 void fir(int x[], int c[], int y[], int n, int m) {
     for (int j=0; j<=n-m; j += 1) {
         y[j] = 0;
-        for (int i=0; i<=m; i += 1) {
-            printf("X values: %x, xindex: %x --- C values: %x, Y value: %x\n", x[j - i + m - 1], j-i+m-1, c[i], y[j]);
+        for (int i=0; i<m; i += 1) {
+            // printf("X values: %x, xindex: %x --- C values: %x, Y value: %x\n", x[j - i + m - 1], j-i+m-1, c[i], y[j]);
             y[j] = add_q31(y[j], mul_q31(c[i], x[j - i + m - 1]));
         }
-        printf("\n");
+        // printf("\n");
     }
-    return;
 }
 
             //  x            c          y         n   m
@@ -93,10 +91,6 @@ int main(void) {
     fir(sin_table, lowpass, y, 20, 4);
     setStats(0);        // record elapsed mcycle and minstret
 
-    
-    // for (int i=0; i<17; i++) {
-    //     printf("%x\n", *(y+i)); // she's working and yet verify continues to disappoint
-    // }
     // printf("%x VS. %x VS. %x", &y, *y, y);
 
     return verify(17, y, expected); 
