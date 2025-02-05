@@ -20,21 +20,21 @@ int32_t mul_q31(int a, int b) {
 // y[j] = c[0]*x[j] + c[1]*x[j+1] + ... + c[m-1]*x[j+m-1]
 // inputs in Q1.31 format
 // void fir(int x[], int c[], int y[], int n, int m) {
-// 	// your code here, use add_q31 and mul_q31
-// void fir(int x[], int c[], int y[], int n, int m) {
-//     for (int j=0; j<=n-m; j += 1) {
-//         y[j] = 0;
-//         for (int i=0; i<m; i += 1) {
-//             printf("X values: %x, xindex: %x --- C values: %x, Y value: %x\n", x[j - i + m - 1], j-i+m-1, c[i], y[j]);
-//             y[j] = add_q31(y[j], mul_q31(c[i], x[j - i + m - 1]));
-//         }
-//         printf("\n");
-//     }
-//     return;
-// }
+	// your code here, use add_q31 and mul_q31
+void fir(int x[], int c[], int y[], int n, int m) {
+    for (int j=0; j<=n-m; j += 1) {
+        y[j] = 0;
+        for (int i=0; i<=m; i += 1) {
+            printf("X values: %x, xindex: %x --- C values: %x, Y value: %x\n", x[j - i + m - 1], j-i+m-1, c[i], y[j]);
+            y[j] = add_q31(y[j], mul_q31(c[i], x[j - i + m - 1]));
+        }
+        printf("\n");
+    }
+    return;
+}
 
             //  x            c          y         n   m
-extern void fir(int32_t *, int32_t *, int32_t *, int, int);
+// extern void fir(int32_t *, int32_t *, int32_t *, int, int);
 
 // extern void fir(int x[], int c[], int y[], int n, int m)
 
@@ -87,12 +87,17 @@ int main(void) {
         0x9d839dc6
     };
     // printf("Expected: %lx\n", expected[0]);
-    setStats(1);        // record initial mcycle and minstret
 
     int val = 20;
-    fir(sin_table, lowpass, y, val, 4);
-
+    setStats(1);        // record initial mcycle and minstret
+    fir(sin_table, lowpass, y, 20, 4);
     setStats(0);        // record elapsed mcycle and minstret
+
+    
+    // for (int i=0; i<17; i++) {
+    //     printf("%x\n", *(y+i)); // she's working and yet verify continues to disappoint
+    // }
+    // printf("%x VS. %x VS. %x", &y, *y, y);
 
     return verify(17, y, expected); 
 // check the 1 element of s matches expected. 0 means success

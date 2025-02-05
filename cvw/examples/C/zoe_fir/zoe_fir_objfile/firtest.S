@@ -1,4 +1,5 @@
-.section .text.init
+// firtest.S
+// zworrall@hmc.edu February 4 2025
 
 .global rvtest_entry_point
 rvtest_entry_point:
@@ -42,24 +43,21 @@ fromhost:
 .data
 X:
     .dword 4
-
-    .data
 C:
     .dword 4
-
-.data
 Y:
     .dword 4
-
-.data
 M:
     .dword 4
-
-.data
 N:
     .dword 4
 
+.EQU XLEN,64
+begin_signature:
+    .fill 2*(XLEN/32),4,0xdeadbeef    # 
+end_signature:
+
 # Initialize stack with room for 512 bytes
 .bss
-    .space 512
+    .space 2048
 topofstack:

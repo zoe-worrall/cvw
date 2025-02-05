@@ -26,13 +26,14 @@ fir:
     sub s2, a3, a4      # s2 = n-m
     addi s3, a4, -1     # s3 = m-1
 
-# fir_2:
-#     li s8, 0x500000000
-#     li s9, 0xA00000000
+# # fir_2:
+# #     li s8, 0x500000000
+# #     li s9, 0xA00000000
+
     j fir_2
 
 fir_1:
-    bge s0, s2, done     # if j > m-n, go to done loop
+    bgt s0, s2, done     # if j > m-n, go to done loop
     
     # calculate address j
     mul t1, s0, t3     # index from j (diff * 4)
@@ -44,7 +45,7 @@ fir_1:
     addi s0, s0, 1       # set a4 (i.e. j)++
 
 fir_2:
-    bge s1, s3, fir_1    # if i >= m (so loop from 0 to m-1), go to outer for loop
+    bgt s1, s3, fir_1    # if i >= m (so loop from 0 to m-1), go to outer for loop
     
     sub t0, s0, s1       # save j - i
     addi t1, a4, -1      # save m-1
@@ -60,11 +61,11 @@ fir_2:
     add t1, a1, t1       # address of c + INDEX
     lw s9, 0(t1)         # save c[i] in s9
 
-#     # use mul_q31 ( c[i] * x[j-i + m-1] ) -- saves in x3
+#     # use mul_q31 ( c[i] * x[j-i + m-1] ) -- saves in a7
     j mul_q31
 after_mul:
 
-    mv s9, x3          # save output of mul_q31 into s9
+    mv s9, a7          # save output of mul_q31 into s9
 
     # calculate address j
     mul t1, s0, t3     # index from j (diff * 4)
@@ -78,8 +79,8 @@ after_add:
     li t3, 4           # cause i'm pretty sure temp resets itself
     mul t1, s0, t3     # index from j (diff * 4)
     add t1, t1, a2     # we're at a2 + t1  (j*4 + a2)
-    sw x3, 0(t1)       # save x3 value into the array at our current imdex
-    mv s11, x3
+    sw a7, 0(t1)       # save a7 value into the array at our current imdex
+    mv s11, a7
 
     addi s1, s1, 1     # i++
 
@@ -90,19 +91,19 @@ mul_q31:
     srai s9, s9, 32
     slli s8, s8, 32
     srai s8, s8, 32
-    mul x3, s9, s8    # save s8+s9 in s10
-    srai x3, x3, 31
+    mul a7, s9, s8    # save s8+s9 in s10
+    srai a7, a7, 31
     j after_mul
 
 add_q31:
-    add x3, s9, s8    # save s5+s6 in s7
-    slli x3, x3, 32
-    srai x3, x3, 32
+    add a7, s9, s8    # save s5+s6 in s7
+    slli a7, a7, 32
+    srai a7, a7, 32
     j after_add
 
 done:
     mv a0, a2           # put result in a0 to return
-    ld s0, 0(sp)        # restore s0 and s1 from stack
-    ld s1, 8(sp)
+    ld s1, 8(sp)        # restore s0 and s1 from stack
+    ld s0, 0(sp)
     addi sp, sp, 16  
     ret                 # return from function
