@@ -2,6 +2,10 @@
 #include <stdio.h>  // supports printf
 #include "util.h"   // supports verify
 
+// Zoe Worrall (zworrall@hmc.edu)
+// February 4, 2025
+// SoC E154 Lab 1
+
 // Add two Q1.31 fixed point numbers
 int64_t add_q31(int a, int b) {
     return (int64_t)a+(int64_t)b;
@@ -18,8 +22,7 @@ int32_t mul_q31(int a, int b) {
 // n is the length of x, m is the length of c
 // y[j] = c[0]*x[j] + c[1]*x[j+1] + ... + c[m-1]*x[j+m-1]
 // inputs in Q1.31 format
-// void fir(int x[], int c[], int y[], int n, int m) {
-	// your code here, use add_q31 and mul_q31
+
 void fir(int x[], int c[], int y[], int n, int m) {
     for (int j=0; j<=n-m; j += 1) {
         y[j] = 0;

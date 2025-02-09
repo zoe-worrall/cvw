@@ -12,6 +12,12 @@ extern void setStats(int enable);
 static int verify(int n, const volatile int* test, const int* verify)
 {
   int i;
+  // Testing thigns
+  // printf("\nTesting %x --- Received %x\n", verify[0], test[0]);
+  // printf("\nTesting (2) %x --- Received (2) %x\n\n", verify[1], test[1]);
+  // printf("New Line: %x\n", n%2);
+  // printf("Tests: (t) %x vs (v) %x\n", test);
+  
   // Unrolled for faster verification
   for (i = 0; i < n/2*2; i+=2)
   {
