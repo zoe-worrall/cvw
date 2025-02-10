@@ -26,10 +26,10 @@ input        negz;
 input [1:0]  roundmode;
 
 output [15:0] result;
-output        flags;
+output [3:0]  flags;
 
 reg [15:0] result_mul;
-reg flags_mul;
+reg [3:0]  flags_mul;
 
 assign result = (mul) ? result_mul : 0;
 assign flags  = (mul) ? flags_mul : 0;
