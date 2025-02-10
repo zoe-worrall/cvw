@@ -44,7 +44,8 @@ assign flags  = (mul) ? flags_mul : 0;
 // roundmode, mul, add, negp, negz
 
 // fmultiply section
-fma16_fmul fmul_i(
+fma16_fmul fmul_i
+	(
 		.x (x),
         .y (y),
         .z (z),
