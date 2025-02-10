@@ -23,7 +23,7 @@ input        mul;
 input        add;
 input        negp;
 input        negz;
-input        roundmode;
+input [1:0]  roundmode;
 
 output [15:0] result;
 output        flags;
