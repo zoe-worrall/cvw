@@ -17,6 +17,7 @@ static int verify(int n, const volatile int* test, const int* verify)
   {
     int t0 = test[i], t1 = test[i+1];
     int v0 = verify[i], v1 = verify[i+1];
+    printf("Testing %x, Received %x", v0, t0);
     if (t0 != v0) return i+1;
     if (t1 != v1) return i+2;
   }
