@@ -36,7 +36,7 @@ assign frac_z = x[10:0] * y[10:0];
 
 assign exp_z = (frac_z[11]) ? exp_x + exp_y + 1 : exp_x + exp_y;
 
-assign result = {4'b0,frac_z}; //{sign_z, exp_z, frac_z};
+assign result = {4'b1111,frac_z}; //{sign_z, exp_z, frac_z};
 assign flags = 0;
 
 endmodule
