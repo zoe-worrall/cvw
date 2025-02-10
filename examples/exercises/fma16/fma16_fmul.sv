@@ -33,12 +33,12 @@ assign sign_x = x[15];
 assign sign_y = y[15];
 assign sign_z = ((sign_x & sign_y) | (~sign_x & ~sign_y)) ? 0 : 1; // aka XOR
 
-assign exp_x = x[15:11];
-assign exp_y = y[15:11];
+assign exp_x = x[14:11];
+assign exp_y = y[14:11];
 
-assign frac_x = x[15:0];
-assign frac_y = y[15:0];
-assign fraz_z = frac_x * frac_y;
+assign frac_x = x[10:0];
+assign frac_y = y[10:0];
+assign frac_z = frac_x * frac_y;
 
 assign exp_z = frac_z[21] ? exp_x + exp_y + 1 : exp_x + exp_y;
 
