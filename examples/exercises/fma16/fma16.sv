@@ -49,9 +49,9 @@ fma16_fmul
 	#()
 	fmul_i
 	(
-		.x,
-        .y,
-        .z,
+		.x (x),
+        .y (y),
+        .z (z),
 
         .result (result_mul),
         .flags  (flags_mul)
