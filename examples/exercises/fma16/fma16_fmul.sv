@@ -21,13 +21,9 @@ output [3:0]  flags;
 /*** PARAMETERS ***/
 // value calculation
 
-reg [31:0] middle_step;
-
-
 reg        sign_x, sign_y, sign_z;
 reg [3:0]  exp_x, exp_y, exp_z;
-reg [10:0] frac_x, frac_y;
-reg [21:0] frac_z;
+reg [10:0] frac_x, frac_y, frac_z;
 
 assign sign_x = x[15];
 assign sign_y = y[15];
@@ -40,10 +36,9 @@ assign frac_x = x[10:0];
 assign frac_y = y[10:0];
 assign frac_z = frac_x * frac_y;
 
-assign exp_z = frac_z[21] ? exp_x + exp_y + 1 : exp_x + exp_y;
+assign exp_z = (frac_z[10]) ? exp_x + exp_y + 1 : exp_x + exp_y;
 
-assign result = middle_step[31:16];
-
+assign result = {sign_z, exp_z, frac_z};
 assign flags = 0;
 
 endmodule
