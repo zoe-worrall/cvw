@@ -38,7 +38,7 @@ assign frac_z = frac_x * frac_y;
 
 assign exp_z = (frac_z[10]) ? exp_x + exp_y + 1 : exp_x + exp_y;
 
-assign result = {sign_z, exp_z, frac_z};
+assign result = frac_z//{sign_z, exp_z, frac_z};
 assign flags = 0;
 
 endmodule
