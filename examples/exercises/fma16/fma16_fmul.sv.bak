@@ -22,7 +22,7 @@ output [3:0]  flags;
 // value calculation
 
 reg        sign_x, sign_y, sign_z;
-reg [2:0]  exp_x, exp_y, exp_z;
+reg [3:0]  exp_x, exp_y, exp_z;
 reg [13:0] frac_z;
 
 assign sign_x = x[15];
