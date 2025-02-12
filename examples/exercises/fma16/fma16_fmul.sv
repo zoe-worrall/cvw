@@ -23,8 +23,7 @@ output [3:0]  flags;
 
 reg        sign_x, sign_y, sign_z;
 
-reg [4:0]  exp_x, exp_y;
-reg [5:0]  exp_z;
+reg [4:0]  exp_x, exp_y, exp_z;
 
 reg [9:0] frac_z;
 reg [10:0] frac_x, frac_y;
@@ -41,7 +40,7 @@ assign frac_x = {1'b1, x[9:0]};
 assign frac_y = {1'b1, y[9:0]};
 
 assign middle_frac = frac_x * frac_y;
-assign exp_z = (middle_frac[21]) ? {exp_x + exp_y - 4'b1110} : {exp_x + exp_y - 4'b1111}[4:0];//(frac_z[11]) ? exp_x + exp_y + 1 : exp_x + exp_y;
+assign exp_z = (middle_frac[21]) ? {exp_x + exp_y - 5'b01110} : {exp_x + exp_y - 5'b01111};//(frac_z[11]) ? exp_x + exp_y + 1 : exp_x + exp_y;
 
 assign frac_z = (middle_frac[21]) ? middle_frac[20:11] : middle_frac[19:10];
 
