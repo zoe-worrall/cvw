@@ -22,20 +22,23 @@ output [3:0]  flags;
 // value calculation
 
 reg        sign_x, sign_y, sign_z;
-reg [2:0]  exp_x, exp_y, exp_z;
-reg [13:0] frac_z;
+reg [4:0]  exp_x, exp_y, exp_z;
+reg [10:0] frac_x, frac_y;
+wire [11:0] frac_z;
 
 assign sign_x = x[15];
 assign sign_y = y[15];
 assign sign_z = ((sign_x & sign_y) | (~sign_x & ~sign_y)) ? 0 : 1; // aka XOR
 
-assign exp_x = x[14:11];
-assign exp_y = y[14:11];
+assign exp_x = x[14:10]; // 4 bits
+assign exp_y = y[14:10]; // 4 bits
 
-assign frac_z = { x[10]*y[10], x[9]*y[9], x[8]*y[8], x[7]*y[7], x[6]*y[6],x[5]*y[5], x[4]*y[4], x[3]*y[3], x[2]*y[2], x[1]*y[1], x[0]*y[0]};
-assign exp_z = { exp_x[2]* exp_y[2], exp_x[1]*exp_y[1], exp_x[0]*exp_y[0] };//(frac_z[11]) ? exp_x + exp_y + 1 : exp_x + exp_y;
+assign frac_x = {1'b1, x[9:0]};
+assign frac_y = {1'b1, y[9:0]};
+assign frac_z = frac_x * frac_y;
+assign exp_z = exp_x + exp_y - 15;//(frac_z[11]) ? exp_x + exp_y + 1 : exp_x + exp_y;
 
-assign result = {1'b0, sign_z, exp_z, frac_z};
+assign result = frac_x*frac_y;//{sign_z, exp_z, frac_z[9:0]};
 assign flags = 0;
 
 endmodule
