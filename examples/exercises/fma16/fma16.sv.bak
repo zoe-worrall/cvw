@@ -1,5 +1,9 @@
 /**
-	A module that runs a pvp plot generator using a Finite State Machine
+	A module that runs fma16
+
+    Zoe Worrall - zworrall@g.hmc.edu
+    E154 System on Chip
+    February 12, 2025
 */
 
 module fma16(
@@ -23,15 +27,20 @@ input        mul;
 input        add;
 input        negp;
 input        negz;
-input        roundmode;
+input [1:0]  roundmode;
 
 output [15:0] result;
-output        flags;
+output [3:0]  flags;
 
 reg [15:0] result_mul;
-reg flags_mul;
+reg [3:0]  flags_mul;
 
-assign result = (mul) ? result_mul : 0;
+reg [15:0] val_y;
+reg [15:0] val_z;
+
+assign val_y = (mul) ? y : 1;
+assign val_z = (add) ? z : 0;
+
 assign flags  = (mul) ? flags_mul : 0;
 
 
@@ -44,13 +53,11 @@ assign flags  = (mul) ? flags_mul : 0;
 // roundmode, mul, add, negp, negz
 
 // fmultiply section
-fma16_fmul fmul_i
-	(
-		.x (x),
-        .y (y),
-        .z (z),
+fma16_fmul fmul_i(
+		.x (val_x),
+        .y (val_y),
 
-        .result (result_mul),
+        .result (result),
         .flags  (flags_mul)
 	);
 

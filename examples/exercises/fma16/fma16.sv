@@ -35,7 +35,6 @@ output [3:0]  flags;
 reg [15:0] result_mul;
 reg [3:0]  flags_mul;
 
-reg [15:0] val_x;
 reg [15:0] val_y;
 reg [15:0] val_z;
 
@@ -55,10 +54,10 @@ assign flags  = (mul) ? flags_mul : 0;
 
 // fmultiply section
 fma16_fmul fmul_i(
-		.x (val_x),
+		.x (x),
         .y (val_y),
 
-        .result (result_mul),
+        .result (result),
         .flags  (flags_mul)
 	);
 

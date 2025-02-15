@@ -1,0 +1,15 @@
+Z:/Documents/GitHub/cvw/examples/exercises/fma16/fma16_fmul.sv {1 {vlog -work work -vopt -sv -stats=none Z:/Documents/GitHub/cvw/examples/exercises/fma16/fma16_fmul.sv
+Questa Lattice OEM Edition-64 vlog 2024.2 Compiler 2024.05 May 20 2024
+-- Compiling module fma16_fmul
+
+Top level modules:
+	fma16_fmul
+
+} {} {}} Z:/Documents/GitHub/cvw/examples/exercises/fma16/testbench.sv {1 {vlog -work work -vopt -sv -stats=none Z:/Documents/GitHub/cvw/examples/exercises/fma16/testbench.sv
+Questa Lattice OEM Edition-64 vlog 2024.2 Compiler 2024.05 May 20 2024
+-- Compiling module testbench_fma16
+
+Top level modules:
+	testbench_fma16
+
+} {} {}}
