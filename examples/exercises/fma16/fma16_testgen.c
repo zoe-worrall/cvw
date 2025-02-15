@@ -14,9 +14,15 @@ typedef union sp {
   float f;
 } sp;
 
-// lists of tests, terminated with 0x8000
+// lists of tests, terminated with 0x8000 (test looks for where 0x8000 appears)
 uint16_t easyExponents[] = {15, 0x8000};
 uint16_t easyFracts[] = {0, 0x200, 0x8000}; // 1.0 and 1.1
+
+// lists of tests, terminated with 0x8000. meant to test the edges better than the tests above
+uint16_t medExponents[] = {0, 19, 0x8000};
+
+// edge cases; 0.0000 ... and F.FFFFFF
+uint16_t medFracts[] = {0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777, 0x888, 0x999, 0xaaa, 0xbbb, 0xccc, 0xddd, 0xeee, 0xFFF, 0x8000}; // 1.0 and 1.1
 
 void softfloatInit(void) {
     softfloat_roundingMode = softfloat_round_minMag; 
@@ -36,6 +42,9 @@ float convFloat(float16_t f16) {
     return res;
 }
 
+/** 
+    A function that creates a list of cases using an input set of values for mul, add, and other parameters for X*Y + Z
+*/
 void genCase(FILE *fptr, float16_t x, float16_t y, float16_t z, int mul, int add, int negp, int negz, int roundingMode, int zeroAllowed, int infAllowed, int nanAllowed) {
     float16_t result;
     int op, flagVals;
@@ -102,6 +111,9 @@ void prepTests(uint16_t *e, uint16_t *f, char *testName, char *desc, float16_t *
         }
 }
 
+/** 
+    A function that creates test cases for specifically multiplication using fma16_fmul.sv
+*/
 void genMulTests(uint16_t *e, uint16_t *f, int sgn, char *testName, char *desc, int roundingMode, int zeroAllowed, int infAllowed, int nanAllowed) {
     int i, j, k, numCases;
     float16_t x, y, z;
@@ -136,6 +148,8 @@ int main()
  
     // Test cases: multiplication
     genMulTests(easyExponents, easyFracts, 0, "fmul_0", "// Multiply with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
+
+    genMulTests(medExponents, medFracts, 0, "fmul_1", "// Multiply with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
 
 /*  // example of how to generate tests with a different rounding mode
     softfloat_roundingMode = softfloat_round_near_even; 

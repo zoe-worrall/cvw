@@ -39,10 +39,11 @@ reg [15:0] val_y;
 reg [15:0] val_z;
 
 assign val_y = (mul) ? y : 1;
-assign val_z = (add) ? z : 0;
+assign val_z = (add) ? (negz) ? -z : z : 0;
 
 assign flags  = (mul) ? flags_mul : 0;
 
+assign result = (negp) ? (-1)*result_mul : result_mul;
 
 //  4*4
 //        3c00_3c00_0000_   08_     3c00_        0         // 1.000000 * 1.000000 = 1.000000 NV: 0 OF: 0 UF: 0 NX: 0
@@ -57,7 +58,7 @@ fma16_fmul fmul_i(
 		.x (x),
         .y (val_y),
 
-        .result (result),
+        .result (result_mul),
         .flags  (flags_mul)
 	);
 

@@ -36,8 +36,8 @@ assign sign_x = x[15];
 assign sign_y = y[15];
 assign sign_z = ((sign_x & sign_y) | (~sign_x & ~sign_y)) ? 0 : 1; // aka XOR
 
-assign exp_x = x[14:10]; // 4 bits
-assign exp_y = y[14:10]; // 4 bits
+assign exp_x = x[14:10]; // 5 bits
+assign exp_y = y[14:10]; // 5 bits
 
 assign frac_x = {1'b1, x[9:0]};
 assign frac_y = {1'b1, y[9:0]};
