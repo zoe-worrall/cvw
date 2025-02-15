@@ -10,15 +10,13 @@
 
 module fma16_fmul(
     x, 
-    y, 
-    z, 
+    y,
     result, 
     flags	
 );
 
 input [15:0] x;
 input [15:0] y;
-input [15:0] z;
 
 output [15:0] result;
 output [3:0]  flags;
