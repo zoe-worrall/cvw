@@ -1,6 +1,11 @@
 /**
     A System Verilog program that 
 // For a refresher, I advise using https://www.geeksforgeeks.org/multiplying-floating-point-numbers/
+
+
+    Zoe Worrall - zworrall@g.hmc.edu
+    E154 System on Chip
+    February 12, 2025
 */
 
 module fma16_fmul(

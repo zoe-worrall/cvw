@@ -1,5 +1,9 @@
 /**
-	A module that runs a pvp plot generator using a Finite State Machine
+	A module that runs fma16
+
+    Zoe Worrall - zworrall@g.hmc.edu
+    E154 System on Chip
+    February 12, 2025
 */
 
 module fma16(
