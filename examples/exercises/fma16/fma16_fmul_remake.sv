@@ -8,7 +8,7 @@
     February 12, 2025
 */
 
-module fma16_fmul(
+module fma16_fmul_remake(
     x, 
     y,
     result, 
@@ -26,28 +26,21 @@ output [3:0]  flags;
 
 reg        sign_x, sign_y, sign_z;
 
-reg [4:0]  exp_x, exp_y, exp_z;
+reg [5:0]  exp_z;
 
 reg [9:0] frac_z;
 reg [10:0] frac_x, frac_y;
-wire [21:0] middle_frac;
+wire [10:0] mant_z;
 
-assign sign_x = x[15];
-assign sign_y = y[15];
-assign sign_z = sign_x ^ sign_y ? 0 : 1; // aka XOR
-
-assign exp_x = x[14:10]; // 5 bits
-assign exp_y = y[14:10]; // 5 bits
+assign sign_z = x[15] ^ y[15];
+assign exp_z = x[14:10] + y[14:10] - 4'b0111;
 
 assign mant_x = {1'b1, x[9:0]};
 assign mant_y = {1'b1, y[9:0]};
 
-assign middle_frac = frac_x * frac_y;
-assign exp_z = (middle_frac[21]) ? {exp_x + exp_y - 5'b01110} : {exp_x + exp_y - 5'b01111};//(frac_z[11]) ? exp_x + exp_y + 1 : exp_x + exp_y;
+assign mant_z = [20:11];
 
-assign frac_z = (middle_frac[21]) ? middle_frac[20:11] : middle_frac[19:10];
-
-assign result = {sign_z, exp_z, frac_z};
+assign result = {sign_z, exp_z, mant_z};
 assign flags = 0;
 
 endmodule
