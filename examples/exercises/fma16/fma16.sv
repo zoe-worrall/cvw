@@ -54,7 +54,7 @@ assign result = (negp) ? (-1)*result_mul : result_mul;
 // roundmode, mul, add, negp, negz
 
 // fmultiply section
-fma16_fmul fmul_i(
+fma16_fmul_remake fmul_i(
 		.x (x),
         .y (val_y),
 

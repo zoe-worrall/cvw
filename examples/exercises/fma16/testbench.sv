@@ -21,7 +21,7 @@ module testbench_fma16;
   // at start of test, load vectors and pulse reset
   initial
     begin
-      $readmemh("../tests/fmul_0.tv", testvectors);
+      $readmemh("C:/Users/zoeworrall/Desktop/projects_LRS/project_testing/fmul_1.tv", testvectors);
       vectornum = 0; errors = 0;
       reset = 1; #22; reset = 0;
     end
@@ -36,6 +36,7 @@ module testbench_fma16;
   // check results on falling edge of clk
   always @(negedge clk)
     if (~reset) begin // skip during reset
+      $display("Test #%h", vectornum);
       if (result !== rexpected /* | flags !== flagsexpected */) begin  // check result
         $display("Error: inputs %h * %h + %h", x, y, z);
         $display("  result = %h (%h expected) flags = %b (%b expected)", result, rexpected, flags, flagsexpected);

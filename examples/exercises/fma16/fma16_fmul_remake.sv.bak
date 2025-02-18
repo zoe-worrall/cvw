@@ -45,9 +45,10 @@ reg [9:0] mant_z;
 // ROUNDING
 assign needToRound = midd_mant[9:0] > 0;
 assign mantissaTo1 = midd_mant[9:0]-9'b1000_00000;
+assign mantissaTo0 = 9'b1000_00000-midd_mant[9:0];
 
 // RNE
-assign rne_bit = ((mantissaTo1==0)||(mantissaTo1>9'b1000_00000)) ? 0 : 1; // if the initial value is closer to 0 vs closer to 1
+assign rne_bit = ((mantissaTo0==mantissaTo1)||(mantissaTo0<mantissaTo1)) ? 0 : 1; // if the initial value is closer to 0 vs closer to 1
 
 
 // --------------ACTUAL VALUE CALCULATION---------------- //
