@@ -34,13 +34,13 @@ wire [21:0] middle_frac;
 
 assign sign_x = x[15];
 assign sign_y = y[15];
-assign sign_z = sign_x ^ sign_y ? 0 : 1; // aka XOR
+assign sign_z = ((sign_x & sign_y) | (~sign_x & ~sign_y)) ? 0 : 1; // aka XOR
 
 assign exp_x = x[14:10]; // 5 bits
 assign exp_y = y[14:10]; // 5 bits
 
-assign mant_x = {1'b1, x[9:0]};
-assign mant_y = {1'b1, y[9:0]};
+assign frac_x = {1'b1, x[9:0]};
+assign frac_y = {1'b1, y[9:0]};
 
 assign middle_frac = frac_x * frac_y;
 assign exp_z = (middle_frac[21]) ? {exp_x + exp_y - 5'b01110} : {exp_x + exp_y - 5'b01111};//(frac_z[11]) ? exp_x + exp_y + 1 : exp_x + exp_y;
