@@ -25,7 +25,7 @@ output [3:0]  flags;
 // value calculation
 
 reg needToRound;
-reg [9:0] mantissaTo1, mantissaTo0;
+reg [9:0] mantissa_hf;
 
 // the final bit of the mantissa if it needs to be changed
 reg rne_bit, rtz_bit, rdn_bit, rup_bit;
@@ -34,22 +34,20 @@ reg rne_bit, rtz_bit, rdn_bit, rup_bit;
 // bits for normal calculations
 reg        sign_x, sign_y, sign_z;
 
-reg [4:0] exp_x, exp_y;
-reg [4:0]  exp_z;
+reg [4:0] exp_x, exp_y, og_exp;
+reg [4:0] rne_exp, exp_z;
 reg [10:0] mant_x, mant_y;
 
-reg [20:0] midd_mant;
-reg [9:0] mant_z;
+reg [21:0] midd_mant;
+reg [9:0] mant_z, rne_mant_z;
 
 // --------------ROUNDING CALCULATION---------------- //
 // ROUNDING
 assign needToRound = midd_mant[9:0] > 0;
-assign mantissaTo1 = midd_mant[9:0]-9'b1000_00000;
-assign mantissaTo0 = 9'b1000_00000-midd_mant[9:0];
+// assign mantissaTo1 = midd_mant[9:0]-9'b1000_00000;
 
 // RNE
-assign rne_bit = ((mantissaTo0==mantissaTo1)||(mantissaTo0<mantissaTo1)) ? 0 : 1; // if the initial value is closer to 0 vs closer to 1
-
+assign rne_bit = ~(midd_mant[9:0] > 9'b1000_00000);
 
 // --------------ACTUAL VALUE CALCULATION---------------- //
 
@@ -59,20 +57,30 @@ assign sign_z = x[15] ^ y[15];
 // exponential
 assign exp_x = x[14:10];
 assign exp_y = y[14:10];
+assign og_exp = exp_x + exp_y - 4'b1111;
 
-// if we round up, we will sometimes need the exponent to be one lower
-assign exp_z = (needToRound && rne_bit) ? {exp_x + exp_y - 4'b1110} : {exp_x + exp_y - 4'b1111};
+assign rne_exp = (midd_mant[21]) ? og_exp+1 : og_exp;
+
 
 // mantissa
 assign mant_x = {1'b1, x[9:0]};
 assign mant_y = {1'b1, y[9:0]};
 assign midd_mant = mant_x * mant_y;
-assign mant_z = (needToRound) ? {midd_mant[19:11], rne_bit} : midd_mant[19:10];
+
+
+// RNE: if it's halfway, we round to 0
+// 	if bit 21 is set (i.e. it becomes 1) then that means that exp should be +1 and mant should be shifte
+assign rne_mant_z = (midd_mant[21]) ? (midd_mant[20]) ? midd_mant[18:9] : midd_mant[19:11] + rne_bit : {midd_mant[19:11], 1'b0}; //{ midd_mant[19:11], 1'b0 } ;
+
+// Assign Post-rounding
+assign exp_z = (needToRound) ? rne_exp : og_exp;
+assign mant_z = (needToRound) ? rne_mant_z : midd_mant[19:10];
+
 
 // ----------------- OUTPUTS ------------------------- //
 
 
-assign result = {sign_z, exp_z, mant_z};
+assign result =  {sign_z, exp_z, mant_z};
 assign flags[3:1] = 0;
 
 assign flags[0] = (midd_mant[9:0] > 0) ? 1 : 0;
