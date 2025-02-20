@@ -24,6 +24,10 @@ uint16_t medExponents[] = {0, 19, 0x8000};
 uint16_t medFracts[] = {0x0, 0x4000, 0x1111, 0x1FFF, 0x2000, 0x3011, 0x3FFF, 0x7FFF, 0x8000};
 
 
+// zoe tests - testing all types of NaNs, subnormals, and infinity
+uint16_t nanExponents[] = {0x0000, 0x0FF0, 0x8000};
+uint16_t nanFracts[] = {0, 0x1F, 0x8000};
+
 
 void softfloatInit(void) {
     softfloat_roundingMode = softfloat_round_minMag; 
@@ -228,11 +232,21 @@ int main()
     genMulAddTests(medExponents, medFracts, 1, "fadd_mul_2", "// Multiply + Add with a negative (signal = 1)", 0, 0, 0, 0);
 
 
-    genMulAddTests(medExponents, medFracts, 1, "fma_special_rz", "// Multiply + Add with a negative (signal = 1)", 0, 1, 1, 1);
-    genMulAddTests(medExponents, medFracts, 1, "fma_special_rne", "// Multiply + Add with a negative (signal = 1)", 1, 1, 1, 1);
-    genMulAddTests(medExponents, medFracts, 1, "fma_special_rm", "// Multiply + Add with a negative (signal = 1)", 2, 1, 1, 1);
-    genMulAddTests(medExponents, medFracts, 1, "fma_special_rp", "// Multiply + Add with a negative (signal = 1)", 3, 1, 1, 1);
+    genMulAddTests(medExponents, medFracts, 1, "fma_special_rz", "// Multiply + Add with a negative (signal = 1) and Rz Rounding", 0, 1, 1, 1);
+    genMulAddTests(medExponents, medFracts, 1, "fma_special_rne", "// Multiply + Add with a negative (signal = 1) and RNE Rounding", 1, 1, 1, 1);
+    genMulAddTests(medExponents, medFracts, 1, "fma_special_rm", "// Multiply + Add with a negative (signal = 1) and RM Rounding", 2, 1, 1, 1);
+    genMulAddTests(medExponents, medFracts, 1, "fma_special_rp", "// Multiply + Add with a negative (signal = 1) and RP Rounding", 3, 1, 1, 1);
 
+
+    // testing all the Nan Values -- with a lot of files for each
+    genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rz_p", "// NaN with Rz Rounding (signal = 1)", 0, 1, 1, 1);
+    genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rne_p", "// NaN with RNE Rounding (signal = 1)", 1, 1, 1, 1);
+    genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rm_p", "// NaN with RNE Rounding (signal = 1)", 2, 1, 1, 1);
+    genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rp_p", "// NaN with RNE Rounding (signal = 1)", 3, 1, 1, 1);
+    genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rz_n", "// NaN with Rz Rounding (signal = 1)", 0, 1, 1, 1);
+    genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rne_n", "// NaN with RNE Rounding (signal = 1)", 1, 1, 1, 1);
+    genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rm_n", "// NaN with RNE Rounding (signal = 1)", 2, 1, 1, 1);
+    genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rp_n", "// NaN with RNE Rounding (signal = 1)", 3, 1, 1, 1);
 
 
 /*  // example of how to generate tests with a different rounding mode
