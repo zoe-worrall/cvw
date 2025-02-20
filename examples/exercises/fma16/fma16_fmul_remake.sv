@@ -47,7 +47,7 @@ assign needToRound = midd_mant[9:0] > 0;
 // assign mantissaTo1 = midd_mant[9:0]-9'b1000_00000;
 
 // RNE
-assign rne_bit = ~(midd_mant[9:0] > 9'b1000_00000);
+assign rne_bit = ~(midd_mant[9:0] > 10'b01000_00000);
 
 // --------------ACTUAL VALUE CALCULATION---------------- //
 
@@ -70,7 +70,7 @@ assign midd_mant = mant_x * mant_y;
 
 // RNE: if it's halfway, we round to 0
 // 	if bit 21 is set (i.e. it becomes 1) then that means that exp should be +1 and mant should be shifte
-assign rne_mant_z = (midd_mant[21]) ? (midd_mant[20]) ? midd_mant[20:11] : midd_mant[19:11] + rne_bit : {midd_mant[19:11], 1'b0}; //{ midd_mant[19:11], 1'b0 } ;
+assign rne_mant_z = (midd_mant[21]) ? (midd_mant[20]) ? midd_mant[20:11] : midd_mant[19:11] + {{(9){1'b0}}, rne_bit} : {midd_mant[19:11], 1'b0}; //{ midd_mant[19:11], 1'b0 } ;
 
 // Assign Post-rounding
 assign exp_z = (needToRound) ? rne_exp : og_exp;
