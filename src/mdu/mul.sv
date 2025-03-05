@@ -37,13 +37,15 @@ module mul #(parameter XLEN) (
 
     logic [XLEN*2-1:0]  PP1M, PP2M, PP3M, PP4M;               // registered partial proudcts
 
+    /////////////// -------- Added by Zoe, March 5, 2026  -------- ///////////////
+
     logic [XLEN*2-1:0]  PP1E, PP2E, PP3E, PP4E;               // registered partial proudcts
 
     logic Am, Bm, Pm;
     logic [XLEN-2:0] A_prime, B_prime, PA, PB;
     logic [XLEN*2-1:0] P_prime;
 
-    logic MUL, MULH, MULHU, MULHSU;
+    logic MUL, MULH, MULHU, MULHSU;  // boolean to check which function we have
 
  
   //////////////////////////////
@@ -65,12 +67,15 @@ module mul #(parameter XLEN) (
 
 
   assign PA =  Am * B_prime;
-  assign PP2E = {2'b00, (MUL | MULHU) ? PA : ~PA, {(XLEN-1){1'b0}}};  // if youonly look for MULHU, it breaks - 
+  assign PP2E = {2'b00, (MUL | MULHU) ? PA : ~PA, {(XLEN-1){1'b0}}};  // if unsigned, PA, if signed, ~PA
 
   assign PB = Bm * A_prime;
-  assign PP3E = {2'b00, (MULH) ? ~PB : PB, {(XLEN-1){1'b0}}};
+  assign PP3E = {2'b00, (MULH) ? ~PB : PB, {(XLEN-1){1'b0}}};  // if unsigned, PB, if signed (MULH), ~PB
 
   assign PP4E = MULH ? {1'b1, Pm, {(XLEN-3){1'b0}}, 1'b1, {(XLEN){1'b0}}} : (MULHU) ? {1'b0, Pm, {(XLEN*2-2){1'b0}}} : (MULHSU) ? {1'b1, ~Pm, {(XLEN-2){1'b0}}, 1'b1, {(XLEN-1){1'b0}}} : 0;
+
+
+  /////////////// -------- End of Added by Zoe, March 5, 2026  -------- ///////////////
 
   // Memory Stage: Sum partial proudcts
   //////////////////////////////
