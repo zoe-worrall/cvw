@@ -90,4 +90,4 @@ module mul #(parameter XLEN) (
 
   // add up partial products; this multi-input add implies CSAs and a final CPA
   assign ProdM = PP1M + PP2M + PP3M + PP4M; //ForwardedSrcAE * ForwardedSrcBE;
- endmodule
+endmodule

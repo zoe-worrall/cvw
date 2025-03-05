@@ -119,12 +119,12 @@ module controller import cvw::*;  #(parameter cvw_t P) (
   logic        CMOD;                           // Cache management instruction
   logic        InvalidateICacheD, FlushDCacheD;// Invalidate I$, flush D$
   logic        MemReadE, CSRReadE;             // Instruction reads memory, reads a CSR (needed for Hazard unit)
-  logic        MDUE;                           // MDU (multiply/divide) operation
+  logic        MDUE;                           // MDU (multiply/divide) operatio
   logic        SCE;                            // Store Conditional instruction
   logic        CSRWriteD, CSRWriteE;           // CSR write
   logic        PrivilegedD, PrivilegedE;       // Privileged instruction
   logic        InvalidateICacheE, FlushDCacheE;// Invalidate I$, flush D$
-  logic [23:0] ControlsD;                // Main Instruction Decoder control signals
+  logic [`CTRLW-1:0] ControlsD;                // Main Instruction Decoder control signals
   logic        SubArithD;                      // TRUE for R-type subtracts and sra, slt, sltu or B-type ext clr, andn, orn, xnor
   logic        subD, sraD, sltD, sltuD;        // Indicates if is one of these instructions
   logic        BranchTakenE;                   // Branch is taken
@@ -275,7 +275,7 @@ module controller import cvw::*;  #(parameter cvw_t P) (
       7'b0110011: if (RFunctD)
                       ControlsD = `CTRLW'b1_000_00_00_000_0_1_0_0_0_0_0_0_0_00_0_0; // R-type 
                   else if (MFunctD)
-                      ControlsD = `CTRLW'b1_000_00_00_011_0_0_0_0_0_0_0_0_1_00_0_0; // Multiply/Divide
+                      ControlsD = `CTRLW'b1_000_00_00_011_0_0_0_0_0_0_0_0_1_00_0_0; // Multiply/divide
       7'b0110111:     ControlsD = `CTRLW'b1_100_01_00_000_0_0_0_1_0_0_0_0_0_00_0_0; // lui
       7'b0111011: if (RWFunctD)
                       ControlsD = `CTRLW'b1_000_00_00_000_0_1_0_0_1_0_0_0_0_00_0_0; // R-type W instructions for RV64i
