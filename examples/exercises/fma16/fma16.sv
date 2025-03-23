@@ -62,6 +62,9 @@ assign am = zm_bf_shift >> a_cnt;    // left shift
 
 assign sm = am + pm;
 
+logic [9:0] sm_part;
+assign sm_part = sm[44:35]
+
 assign result = {1'b0, pe[4:0], sm[44:35]};
 assign flags = 4'b0;
 

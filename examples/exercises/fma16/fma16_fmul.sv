@@ -24,17 +24,17 @@ output [3:0]  flags;
 /*** PARAMETERS ***/
 // value calculation
 
-reg        sign_x, sign_y, sign_z;
+logic        sign_x, sign_y, sign_z;
 
-reg [4:0]  exp_x, exp_y, exp_z;
+logic [4:0]  exp_x, exp_y, exp_z;
 
-reg [9:0] frac_z;
-reg [10:0] frac_x, frac_y;
-wire [21:0] middle_frac;
+logic [9:0] frac_z;
+logic [10:0] frac_x, frac_y;
+logic [21:0] middle_frac;
 
 assign sign_x = x[15];
 assign sign_y = y[15];
-assign sign_z = ((sign_x & sign_y) | (~sign_x & ~sign_y)) ? 0 : 1; // aka XOR
+assign sign_z = ~(sign_x ^ sign_y); // aka XOR
 
 assign exp_x = x[14:10]; // 5 bits
 assign exp_y = y[14:10]; // 5 bits

@@ -19,7 +19,7 @@ uint16_t easyExponents[] = {15, 0x8000};
 uint16_t easyFracts[] = {0, 0x200, 0x8000}; // 1.0 and 1.1
 
 // lists of tests, terminated with 0x8000. meant to test the edges better than the tests above
-uint16_t medExponents[] = {0, 19, 0x8000};
+uint16_t medExponents[] = {0, 4, 10, 19, 0x8000};
 // corners at the minimum and maximum values (0x0 and 0x3FFF)
 uint16_t medFracts[] = {0x0, 0x4000, 0x1111, 0x1FFF, 0x2000, 0x3011, 0x3FFF, 0x7FFF, 0x8000};
 
