@@ -33,20 +33,32 @@ output [15:0] result;
 output [3:0]  flags;
 
 logic [9:0]  xm, ym, zm;
-logic [19:0] mid_pm;
+logic [22:0] mid_pm;
 logic [99:0] pm;
 logic [4:0]  xe, ye, ze;
 logic [5:0]  pe;
 logic        xs, ys, zs, ps;
 
+logic x_zero, y_zero, z_zero; assign x_zero = (x==0); assign y_zero = (y==0); assign z_zero = (z==0);
+logic x_inf, y_inf, z_inf; assign x_inf = (x==16'b0_11111_0000000000); assign y_inf = (y==16'b0_11111_0000000000); assign z_inf = (z==16'b0_11111_0000000000);
+logic x_nan, y_nan, z_nan; assign x_nan = ((x[15:10]==6'b011_111) & (x[9:0]!=0)); assign y_nan = ((y[15:10]==6'b011_111) & (y[9:0]!=0)); assign z_nan = ((z[15:10]==6'b011_111) & (z[9:0]!=0));
+logic x_one, y_one, z_one; assign x_one = (x==16'b0_01111_0000000000); assign y_one = (y==16'b0_01111_0000000000); assign z_one = (z==16'b0_01111_0000000000);
+
 assign {xs, xe, xm} = x;
 assign {ys, ye, ym} = y;
 assign {zs, ze, zm} = z;
 
-assign mid_pm = xm * ym;
-assign pm = { 53'h0, mid_pm, 27'h0};
+parameter inf_val = 16'b0_11111_0000000000;
+parameter nan_val = 16'b0_11111_0000000001;
 
-assign pe = xe + ye - 5'b11110;
+assign mid_pm = {1'b1, xm} * {1'b1, ym};
+
+logic product_carried; assign product_carried = mid_pm[21];
+
+// assign pm = { 53'h0, mid_pm, 27'h0};
+assign pm = { 53'h0, mid_pm, 25'h0};
+
+assign pe = xe + ye - 5'b01111; // -15 for normalization
 
 logic [5:0] a_cnt;
 logic       a_cnt_sign;
@@ -58,14 +70,18 @@ logic [99:0] zm_bf_shift;
 logic [99:0] am;
 logic [99:0] sm;
 assign zm_bf_shift = { 54'h0, 1'b1, zm, 35'h0 };
-assign am = zm_bf_shift >> a_cnt;    // left shift
+assign am = zm_bf_shift >> (a_cnt - 6'b001111);    // left shift
 
-assign sm = am + pm;
+assign sm = z_zero ? pm : (am + pm);
 
 logic [9:0] sm_part;
 assign sm_part = sm[44:35];
 
-assign result = {1'b0, pe[4:0], sm[44:35]};
+logic positive;
+assign positive = (mid_pm + zm) > 0;
+
+// I'll need to account for the possibility that z is negative in the future, since that'll change the sign bit
+assign result = product_carried ? {(xs ^ ys), (pe[4:0]+1'b1), sm[45:36]} : {(xs ^ ys), pe[4:0], sm[44:35]};
 assign flags = 4'b0;
 
 
