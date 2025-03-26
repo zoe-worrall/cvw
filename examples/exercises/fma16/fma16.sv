@@ -18,6 +18,10 @@ module fma16(
     result, 
     flags); 
 
+/////////////////
+// Parameters
+/////////////////
+
 input [15:0] x;
 input [15:0] y;
 input [15:0] z;
@@ -47,6 +51,10 @@ logic x_inf, y_inf, z_inf;    assign x_inf  = (x==16'b0_11111_0000000000);      
 logic x_nan, y_nan, z_nan;    assign x_nan  = ((x[15:10]==6'b011_111) & (x[9:0]!=0)); assign y_nan = ((y[15:10]==6'b011_111) & (y[9:0]!=0)); assign z_nan = ((z[15:10]==6'b011_111) & (z[9:0]!=0));
 logic x_one, y_one, z_one;    assign x_one  = (x==16'b0_01111_0000000000);            assign y_one = (y==16'b0_01111_0000000000);            assign z_one = (z==16'b0_01111_0000000000);
 
+/////////////////
+// Logic
+/////////////////
+
 assign {xs, xe, xm} = x;
 assign {ys, ye, ym} = y;
 assign {zs, ze, zm} = z;
@@ -54,6 +62,10 @@ assign mid_pm = {1'b1, xm} * {1'b1, ym};
 
 logic product_carried; 
 assign product_carried = mid_pm[21];
+
+/////////////////
+// FMA Steps
+/////////////////
 
 // Step #1 - Product Mantissa
 assign pm = { 62'h0, mid_pm, 53'h0};
@@ -118,46 +130,5 @@ assign ms = (pe > {1'b0, ze}) ? ((~xs & ys) | (xs & ~ys)) : zs;//~(xs ^ ys) : zs
 assign result =  {ms, me[4:0], mm_part};
 assign flags = 4'b0;
 
-
-
-// logic [4:0]  m_cnt; // # of bits to shift: can range from 21 to -21
-// logic [31:0] mm;
-// logic [4:0]  me;
-// always_comb begin
-//     if (sm[41:21]) begin // first half of mantissa is where leading 1 is
-
-//     end else begin
-//     end
-// end
-
-
-// reg [15:0] result_mul;
-// reg [3:0]  flags_mul;
-
-// reg [15:0] val_y;
-// reg [15:0] val_z;
-
-// assign val_y = (mul) ? y : 1;
-// assign val_z = (add) ? (negz) ? -z : z : 0;
-
-// assign flags  = (mul) ? flags_mul : 0;
-
-// assign result = (negp) ? (-1)*result_mul : result_mul;
-
-//  4*4
-//        3c00_3c00_0000_   08_     3c00_        0         // 1.000000 * 1.000000 = 1.000000 NV: 0 OF: 0 UF: 0 NX: 0
-//         x    y    z      ctrl  rexpected,  flagsexpected
-
-// 3c00 = 0011 1100 0000 0000
-//       0     1    0    0     0
-// roundmode, mul, add, negp, negz
-
-// // fmultiply section
-// fma16_fmul_remake fmul_i(
-// 		.x (x),
-//         .y (val_y),
-//         .result (result_mul),
-//         .flags  (flags_mul)
-// 	);
 
 endmodule
