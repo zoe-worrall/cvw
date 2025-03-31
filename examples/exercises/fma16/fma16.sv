@@ -60,8 +60,10 @@ assign {ys, ye, ym} = y;
 assign {zs, ze, zm} = z;
 assign mid_pm = {1'b1, xm} * {1'b1, ym};
 
-logic product_carried; 
-assign product_carried = mid_pm[21];
+logic product_carried_1; 
+logic product_carried_2; 
+assign product_carried_1 = mid_pm[21];
+assign product_carried_2 = mid_pm[20];
 
 /////////////////
 // FMA Steps
@@ -71,19 +73,19 @@ assign product_carried = mid_pm[21];
 assign pm = { 62'h0, mid_pm, 53'h0};
 
 // Step #2 - Product Exponent
-assign pe = xe + ye - 5'b01111;  // -15 for normalization
+assign pe = (xe - 5'b01111) + (ye - 5'b01111) + 5'b01111;  // -15 for normalization
 
 // Step #3 - Alignment Shift Count
 logic [5:0] a_cnt;
 logic       a_cnt_positive;
 assign a_cnt_positive = (pe > {1'b0, ze});
-assign a_cnt = a_cnt_positive ? pe - ze - 6'b001111 : ze - pe - 6'b001111 ;   // maximum is 32
+assign a_cnt = a_cnt_positive ? pe - ze : ze - pe;   // maximum is 32
 
 // Step #4 - Alignment Mantissa
 logic [136:0] zm_bf_shift;
 logic [136:0] am;
 assign zm_bf_shift = { 63'h0, 1'b1, zm, 63'h0 };
-assign am = zm_bf_shift >> a_cnt;    // left shift
+assign am = zm_bf_shift << a_cnt;    // left shift
 
 // Step #5 - Sum Mantissa
 logic [136:0] sm;
@@ -92,22 +94,23 @@ assign sm = z_zero ? pm : (am + pm);
 // Step #6 - Normalization Shift
 logic [7:0] m_cnt;
 always_comb begin // logic based off FMA Detailed Algorithm
-    m_cnt = 0;
-    if (a_cnt_positive & (a_cnt < 6'd21)) begin
-        if       (sm[76]) m_cnt = -2;
-        else if  (sm[75]) m_cnt = -1;
-        else              m_cnt =  0;
+    if (~a_cnt_positive & (a_cnt < 6'd24)) begin
+        if (sm[74 + a_cnt]) m_cnt = -a_cnt - 1;
+        else                m_cnt = -a_cnt;
     end
-    else if (~a_cnt_positive & (a_cnt > 1) & (a_cnt < 4)) begin
-        if       (sm[75 - a_cnt]) m_cnt = { 2'b00, a_cnt} - 8'b1;
-        else                      m_cnt = { 2'b00, a_cnt};
+    else if (a_cnt_positive & (a_cnt >= 1) & (a_cnt < 4)) begin
+        if       (sm[74 + a_cnt]) m_cnt = a_cnt-1; //{ 2'b00, a_cnt} - 8'b1;
+        else                      m_cnt = a_cnt; // { 2'b00, a_cnt};
+        // if       (sm[74 - a_cnt]) m_cnt = { 2'b00, a_cnt} - 8'b1;
+        // else                      m_cnt = { 2'b00, a_cnt};
     end
-    else if (~a_cnt_positive & (a_cnt > 4)) begin
-        if       (sm[75]) m_cnt = { 2'b00, a_cnt};
+    else if (a_cnt_positive & (a_cnt >= 4)) begin
+        if       (sm[74]) m_cnt = { 2'b00, a_cnt};
+        else              m_cnt = 0;
     end
-    else if (a_cnt_positive & (a_cnt > 21)) begin
-        if       (sm[76]) m_cnt = -1;
-        else              m_cnt =  0;
+    else begin // a_cnt_positive = 0 and a_cnt is bigger than 21 (below -21 - i.e. pe > ze)
+        if       (sm[74]) m_cnt = 0; // { 2'b00, a_cnt-1};// m_cnt = { 2'b00, a_cnt-1}; //-2; // this is the case where we need to shift more than 21 bits, so we need to check the next bit down to see if we need to shift more
+        else              m_cnt = 1; // { 2'b00, a_cnt}; //-1;
     end
 end
 
@@ -117,9 +120,12 @@ logic [9:0] mm_part;
 logic [7:0] me;
 logic [7:0] index;
 
-assign mm = (m_cnt > 1) ? sm << (m_cnt - {7'b0, product_carried}) : sm >> ({7'b0, product_carried} - m_cnt);
-assign mm_part = mm[72:63];
-assign me = product_carried ? ({2'b0, pe} - m_cnt + 8'b1) : ({2'b00, pe} - m_cnt);
+logic [7:0] diff_from_pe;
+assign diff_from_pe = me - pe;
+
+assign mm = a_cnt_positive ? (sm << m_cnt) : (sm >> m_cnt);//(z_zero) ? ((m_cnt > 1) ? sm << (m_cnt - {7'b0, product_carried}) : sm >> ({7'b0, product_carried} - m_cnt)) :  sm << m_cnt;
+assign mm_part = (x_zero | y_zero) ? zm : mm[72:63];
+assign me = (x_zero | y_zero) ? {3'b000, ze} : pe - m_cnt; //(z_zero) ? (product_carried ? ({2'b0, pe} - m_cnt + 8'b1) : ({2'b00, pe} - m_cnt)) : ({2'b0, pe} - m_cnt + 1'b1);
 
 
 // Not a Step - Assign First Bit
