@@ -102,16 +102,17 @@ module fma16(
     logic [MAX:0] zm_bf_shift;
     logic [MAX:0] am;
     assign zm_bf_shift = { ZEROS, 1'b1, zm, ZEROS};
+
     assign am = a_cnt_positive ? zm_bf_shift >> a_cnt : zm_bf_shift << a_cnt;    // left shift
 
 
     ////////////// Step #5 - Sum Mantissa //////////////
     logic [MAX:0] sm;
 
-    logic mult_is_neg;
-    assign mult_is_neg = ((~xs & ys) | (xs & ~ys)) ? 1'b1 : 1'b0; // x * y is negative if one of them is negative
-    logic same_sign;
-    assign same_sign = (z_zero | ((mult_is_neg & zs) | (~mult_is_neg & ~zs))) ? 1'b1 : 1'b0; // same_sign is true if the product sign matches the z sign
+    logic  mult_is_neg;
+    assign mult_is_neg = (xs ^ ys) ? 1'b1 : 1'b0; // x * y is negative if one of them is negative
+    logic  same_sign;
+    assign same_sign = (z_zero | ~(mult_is_neg ^ zs)) ? 1'b1 : 1'b0; // same_sign is true if the product sign matches the z sign
 
     // assign sm = z_zero ? pm : (same_sign) ? (am + pm) : (pm > am) ?  (pm - am) : (am - pm); // : (zs & ((xs & ys) | (~xs & ~ys))) ? (pm - am) : (zs & ((~xs & ys) | (xs & ~ys))) ? (pm - am) : (pm + am);
     assign sm = z_zero ? pm : (same_sign) ? (am + pm) : (pm - am);
@@ -119,133 +120,260 @@ module fma16(
     ////////////// Step #6 - Normalization Shift //////////////
     logic [7:0] m_cnt;
         always_comb begin // logic based off FMA Detailed Algorithm
-            if (~a_cnt_positive & a_cnt >= 11) begin
-                m_cnt = (a_cnt==11) ? -11 : (a_cnt==15) ? (same_sign) ? -15 : -14 : zs ? -a_cnt+1 : -a_cnt;
-                // m_cnt = same_sign ? -a_cnt : -a_cnt+1;
-            end
-            else if ((~a_cnt_positive & ((a_cnt < 11)) & (a_cnt >= 2))) begin
-                if (same_sign) begin
-                    if      (sm[DEC+12]) m_cnt = (sm[DEC+11]) ? -14 : -13;
-                    else if (sm[DEC+11]) m_cnt = (sm[DEC+10]) ? -13 : -12;
-                    else if (sm[DEC+10]) m_cnt = (sm[DEC+9 ]) ? -12 : -11;
-                    else if (sm[DEC+9 ]) m_cnt = (sm[DEC+8 ]) ? -11 : -10;
-                    else if (sm[DEC+8 ]) m_cnt = (sm[DEC+7 ]) ? -10 : -9;
-                    else if (sm[DEC+7 ]) m_cnt = (sm[DEC+6 ]) ? -9  : -8;
-                    else if (sm[DEC+6 ]) m_cnt = (sm[DEC+5 ]) ? -8  : -7;
-                    else if (sm[DEC+5 ]) m_cnt = (sm[DEC+4 ]) ? -7  : -6;
-                    else if (sm[DEC+4 ]) m_cnt = (sm[DEC+3 ]) ? -6  : -5;
-                    else if (sm[DEC+3 ]) m_cnt = (sm[DEC+2 ]) ? -5  : -4;
-                    else if (sm[DEC+2 ]) m_cnt = (sm[DEC+1 ]) ? -4  : -3;
-                    else if (sm[DEC+1 ]) m_cnt = (sm[DEC+0 ]) ? -3  : -2;
-                    else if (sm[DEC+0 ]) m_cnt = (sm[DEC-1 ]) ? -2  : -1;
-                    else if (sm[DEC-1 ]) m_cnt = (sm[DEC   ]) ? -1  :  0;
-
-                end else begin
-                    if      (~sm[DEC+12]) m_cnt = -13;
-                    else if (~sm[DEC+11]) m_cnt = -12;
-                    else if (~sm[DEC+10]) m_cnt = -11;
-                    else if (~sm[DEC+9 ]) m_cnt =  -10;
-                    else if (~sm[DEC+8 ]) m_cnt =  -9;
-                    else if (~sm[DEC+7 ]) m_cnt =  -8;
-                    else if (~sm[DEC+6 ]) m_cnt = -7;
-                    else if (~sm[DEC+5 ]) m_cnt = -6;
-                    else if (~sm[DEC+4 ]) m_cnt = -5;
-                    else if (~sm[DEC+3 ]) m_cnt = -4;
-                    else if (~sm[DEC+2 ]) m_cnt = -3;
-                    else if (~sm[DEC+1 ]) m_cnt = -2;
-                    else if (~sm[DEC+0 ]) m_cnt = -1;
-                    else if (~sm[DEC-1 ]) m_cnt = 0;
-                    else                  m_cnt = 0;
-                end
-                
-            end else if ((~a_cnt_positive & (a_cnt == 1)) | (a_cnt == 0) | (a_cnt_positive & (a_cnt <= 6'd20))) begin
-                if (same_sign) begin  // since both have the same sign, the decimal can only move up or stay in place.
+            if (same_sign) begin
+                if (~a_cnt_positive & a_cnt >= 11)                              // [ -inf, -11] range
+                begin
+                    m_cnt = -a_cnt; //(a_cnt==11) ? -11 : (a_cnt==15) ? (same_sign) ? -15 : -14 : zs ? -a_cnt+1 : -a_cnt;
+                    // m_cnt = same_sign ? -a_cnt : -a_cnt+1;
+                end 
+                else if ((~a_cnt_positive & ((a_cnt < 11)) & (a_cnt >= 2)))      // (-11, -2] range
+                begin 
+                        if      (sm[DEC+12]) m_cnt = (sm[DEC+11]) ? -14 : -13;
+                        else if (sm[DEC+11]) m_cnt = (sm[DEC+10]) ? -13 : -12;
+                        else if (sm[DEC+10]) m_cnt = (sm[DEC+9 ]) ? -12 : -11;
+                        else if (sm[DEC+9 ]) m_cnt = (sm[DEC+8 ]) ? -11 : -10;
+                        else if (sm[DEC+8 ]) m_cnt = (sm[DEC+7 ]) ? -10 : -9;
+                        else if (sm[DEC+7 ]) m_cnt = (sm[DEC+6 ]) ? -9  : -8;
+                        else if (sm[DEC+6 ]) m_cnt = (sm[DEC+5 ]) ? -8  : -7;
+                        else if (sm[DEC+5 ]) m_cnt = (sm[DEC+4 ]) ? -7  : -6;
+                        else if (sm[DEC+4 ]) m_cnt = (sm[DEC+3 ]) ? -6  : -5;
+                        else if (sm[DEC+3 ]) m_cnt = (sm[DEC+2 ]) ? -5  : -4;
+                        else if (sm[DEC+2 ]) m_cnt = (sm[DEC+1 ]) ? -4  : -3;
+                        else if (sm[DEC+1 ]) m_cnt = (sm[DEC+0 ]) ? -3  : -2;
+                        else if (sm[DEC+0 ]) m_cnt = (sm[DEC-1 ]) ? -2  : -1;
+                        else if (sm[DEC-1 ]) m_cnt = (sm[DEC   ]) ? -1  :  0;
+                    
+                end 
+                else if ((~a_cnt_positive & (a_cnt == 1)) | (a_cnt == 0) | (a_cnt_positive & (a_cnt <= 6'd20))) 
+                begin
                     if      (sm == 0   )  m_cnt = -1;
                     else if (sm[DEC+2 ])  m_cnt = -3;
                     else if (sm[DEC+1 ])  m_cnt = -2;
                     else if (sm[DEC+0 ])  m_cnt = -1;
                     else                  m_cnt =  0;
                 end 
-                    else  // if the signs are different, we need to check multiple bits ;-;. I'm doing this logarithmically to prevent bad timing/pathway issues
+                else 
                 begin
-                    if      (sm == 0)     m_cnt = -1;
-                    else if (sm[DEC+2 ])  m_cnt = (a_cnt) ? a_cnt + 9 : 1;
-                    else if (sm[DEC+1 ])  m_cnt = 50;
-                    else if (sm[DEC+0:DEC-15])                        // 0 to 15
-                            if (sm[DEC+0:DEC-7])                            // 0 to 7
-                                if (sm[DEC-0:DEC-3])                            // 0 to 3
-                                    if (sm[DEC-0:DEC-1])                            // 0 to 1
-                                        if (sm[DEC-0]) m_cnt = 1;
-                                        else           m_cnt = 0;
-                                    else                                            // 1 to 2
-                                        if (sm[DEC-2]) m_cnt = 1;
-                                        else           m_cnt = 2;
-                                else                                            // 4 to 7
-                                    if (sm[DEC-4:DEC-6])                            // 4 to 5
-                                        if (sm[DEC-4]) m_cnt = 3;
-                                        else           m_cnt = 4;
-                                    else                                            // 6 to 7
-                                        if (sm[DEC-6]) m_cnt = 5;
-                                        else           m_cnt = 6;
-                            else                                            // 8 to 15
-                                if (sm[DEC-8:DEC-11])                               // 8 to 11
-                                    if (sm[DEC-8:DEC-9])                                // 8 to 9
-                                        if (sm[DEC-8]) m_cnt = 7;
-                                        else           m_cnt = 8;
-                                    else                                                // 10 to 11
-                                        if (sm[DEC-10]) m_cnt = 9;
-                                        else            m_cnt = 10;
-                                else                                               // 12 to 15
-                                    if (sm[DEC-12:DEC-13])                              // 12 to 13
-                                        if (sm[DEC-12]) m_cnt = 11;
-                                        else            m_cnt = 12;
-                                    else                                                // 14 to 15
-                                        if (sm[DEC-14]) m_cnt = 13;
-                                        else            m_cnt = 14;
-                    else                                                // 16 to 33
-                        if (sm[DEC-16:DEC-23])                              // 16 to 23
-                            if (sm[DEC-16:DEC-19])                              // 16 to 19
-                                if (sm[DEC-16:DEC-17])                              // 16 to 17
-                                    if (sm[DEC-16]) m_cnt = 15;
-                                    else            m_cnt = 16;
-                                else                                                // 18 to 19
-                                    if (sm[DEC-18]) m_cnt = 17;
-                                    else            m_cnt = 18;
-                            else                                                // 20 to 23
-                                if (sm[DEC-20:DEC-21])                              // 20 to 21
-                                    if (sm[DEC-20]) m_cnt = 19;
-                                    else            m_cnt = 20;
-                                else                                                // 22 to 23
-                                    if (sm[DEC-22]) m_cnt = 21;
-                                    else            m_cnt = 22; 
-                        else if (sm[DEC-24:DEC-31])                             // 24 to 31
-                            if (sm[DEC-24:DEC-27])                                  // 24 to 27
-                                if (sm[DEC-24:DEC-25])                                  // 24 to 25
-                                    if (sm[DEC-24]) m_cnt = 23;
-                                    else            m_cnt = 24;
-                                else                                                    // 26 to 27
-                                    if (sm[DEC-26]) m_cnt = 25;
-                                    else            m_cnt = 26;
-                            else                                                     // 28 to 31
-                                if (sm[DEC-28:DEC-29])                                  // 28 to 29
-                                    if (sm[DEC-28]) m_cnt = 27;
-                                    else            m_cnt = 28;
-                                else                                                    // 30 to 31
-                                    if (sm[DEC-30]) m_cnt = 29;
-                                    else            m_cnt = 30;
-                        else                                                        // 32 to 33
-                                if (sm[DEC-32:DEC-33])                                  // 32 to 33
-                                    if (sm[DEC-32]) m_cnt = 31;
-                                    else            m_cnt = 32; // maximum shift count is 33
-                                else
-                                    m_cnt = -1; // default case, should not happen
+                    if (sm[DEC])       m_cnt = -1;
+                    else               m_cnt = (same_sign) ? 1'b0 : 1'b1;
                 end
-            end else begin
-                if (sm[DEC])       m_cnt = -1;
-                else               m_cnt = (same_sign) ? 1'b0 : 1'b1;
+            end
+            else // not same sign
+            begin
+                if (zs) // z is negative
+                 begin
+                        if (~a_cnt_positive & a_cnt >= 11) begin   // [-inf, -11] range
+                            if ((pe != 0) & ((~a_cnt_positive) & (a_cnt >= 11) & (zs) & ((~mult_is_neg & zs & (zm[8:0] == 0))))) m_cnt = -a_cnt + 1;
+                            else                                                                                                 m_cnt = -a_cnt; 
+                            
+                            // m_cnt = (a_cnt==11) ? -11 : (a_cnt==15) ? (same_sign) ? -15 : -14 : zs ? -a_cnt+1 : -a_cnt;
+                        end
+                        else if ((~a_cnt_positive & ((a_cnt < 11)) & (a_cnt >= 2)))   // (-11, -2] range
+                        begin
+                                if      (~sm[DEC+12]) m_cnt = -13;
+                                else if (~sm[DEC+11]) m_cnt = -12;
+                                else if (~sm[DEC+10]) m_cnt = -11;
+                                else if (~sm[DEC+9 ]) m_cnt =  -10;
+                                else if (~sm[DEC+8 ]) m_cnt =  -9;
+                                else if (~sm[DEC+7 ]) m_cnt =  -8;
+                                else if (~sm[DEC+6 ]) m_cnt = -7;
+                                else if (~sm[DEC+5 ]) m_cnt = -6;
+                                else if (~sm[DEC+4 ]) m_cnt = -5;
+                                else if (~sm[DEC+3 ]) m_cnt = -4;
+                                else if (~sm[DEC+2 ]) m_cnt = -3;
+                                else if (~sm[DEC+1 ]) m_cnt = -2;
+                                else if (~sm[DEC+0 ]) m_cnt = -1;
+                                else if (~sm[DEC-1 ]) m_cnt = 0;
+                                else                  m_cnt = 0;
+                        end
+                        else if ((~a_cnt_positive & (a_cnt == 1)) | (a_cnt == 0) | (a_cnt_positive & (a_cnt <= 6'd20)))  // [-1, 20] range
+                        begin
+                                if      (sm == 0)     m_cnt = -1;
+                                else if (sm[DEC+2 ])  m_cnt = (a_cnt) ? a_cnt + 9 : 1;
+                                else if (sm[DEC+1 ])  m_cnt = 50;
+                                else if (sm[DEC+0:DEC-15])                        // 0 to 15
+                                        if (sm[DEC+0:DEC-7])                            // 0 to 7
+                                            if (sm[DEC-0:DEC-3])                            // 0 to 3
+                                                if (sm[DEC-0:DEC-1])                            // 0 to 1
+                                                    if (sm[DEC-0]) m_cnt = 1;
+                                                    else           m_cnt = 0;
+                                                else                                            // 1 to 2
+                                                    if (sm[DEC-2]) m_cnt = 1;
+                                                    else           m_cnt = 2;
+                                            else                                            // 4 to 7
+                                                if (sm[DEC-4:DEC-6])                            // 4 to 5
+                                                    if (sm[DEC-4]) m_cnt = 3;
+                                                    else           m_cnt = 4;
+                                                else                                            // 6 to 7
+                                                    if (sm[DEC-6]) m_cnt = 5;
+                                                    else           m_cnt = 6;
+                                        else                                            // 8 to 15
+                                            if (sm[DEC-8:DEC-11])                               // 8 to 11
+                                                if (sm[DEC-8:DEC-9])                                // 8 to 9
+                                                    if (sm[DEC-8]) m_cnt = 7;
+                                                    else           m_cnt = 8;
+                                                else                                                // 10 to 11
+                                                    if (sm[DEC-10]) m_cnt = 9;
+                                                    else            m_cnt = 10;
+                                            else                                               // 12 to 15
+                                                if (sm[DEC-12:DEC-13])                              // 12 to 13
+                                                    if (sm[DEC-12]) m_cnt = 11;
+                                                    else            m_cnt = 12;
+                                                else                                                // 14 to 15
+                                                    if (sm[DEC-14]) m_cnt = 13;
+                                                    else            m_cnt = 14;
+                                else                                              // 16 to 33
+                                    if (sm[DEC-16:DEC-23])                              // 16 to 23
+                                        if (sm[DEC-16:DEC-19])                              // 16 to 19
+                                            if (sm[DEC-16:DEC-17])                              // 16 to 17
+                                                if (sm[DEC-16]) m_cnt = 15;
+                                                else            m_cnt = 16;
+                                            else                                                // 18 to 19
+                                                if (sm[DEC-18]) m_cnt = 17;
+                                                else            m_cnt = 18;
+                                        else                                                // 20 to 23
+                                            if (sm[DEC-20:DEC-21])                              // 20 to 21
+                                                if (sm[DEC-20]) m_cnt = 19;
+                                                else            m_cnt = 20;
+                                            else                                                // 22 to 23
+                                                if (sm[DEC-22]) m_cnt = 21;
+                                                else            m_cnt = 22; 
+                                    else if (sm[DEC-24:DEC-31])                             // 24 to 31
+                                        if (sm[DEC-24:DEC-27])                                  // 24 to 27
+                                            if (sm[DEC-24:DEC-25])                                  // 24 to 25
+                                                if (sm[DEC-24]) m_cnt = 23;
+                                                else            m_cnt = 24;
+                                            else                                                    // 26 to 27
+                                                if (sm[DEC-26]) m_cnt = 25;
+                                                else            m_cnt = 26;
+                                        else                                                     // 28 to 31
+                                            if (sm[DEC-28:DEC-29])                                  // 28 to 29
+                                                if (sm[DEC-28]) m_cnt = 27;
+                                                else            m_cnt = 28;
+                                            else                                                    // 30 to 31
+                                                if (sm[DEC-30]) m_cnt = 29;
+                                                else            m_cnt = 30;
+                                    else                                                        // 32 to 33
+                                            if (sm[DEC-32:DEC-33])                                  // 32 to 33
+                                                if (sm[DEC-32]) m_cnt = 31;
+                                                else            m_cnt = 32; // maximum shift count is 33
+                                            else
+                                                m_cnt = 33; // default case, should not happen
+                        end
+                        else 
+                        begin
+                            if (sm[DEC])       m_cnt = -1;
+                            else               m_cnt = (same_sign) ? 1'b0 : 1'b1;
+                        end
+                end
+                else // z is positive
+                begin
+                        if (~a_cnt_positive & a_cnt >= 11) begin   // [-inf, -11] range
+                            m_cnt = -a_cnt; // m_cnt = (a_cnt==11) ? -11 : (a_cnt==15) ? (same_sign) ? -15 : -14 : zs ? -a_cnt+1 : -a_cnt;
+                        end
+                        else if ((~a_cnt_positive & ((a_cnt < 11)) & (a_cnt >= 2)))   // (-11, -2] range
+                        begin
+                                if      (~sm[DEC+12]) m_cnt = -13;
+                                else if (~sm[DEC+11]) m_cnt = -12;
+                                else if (~sm[DEC+10]) m_cnt = -11;
+                                else if (~sm[DEC+9 ]) m_cnt =  -10;
+                                else if (~sm[DEC+8 ]) m_cnt =  -9;
+                                else if (~sm[DEC+7 ]) m_cnt =  -8;
+                                else if (~sm[DEC+6 ]) m_cnt = -7;
+                                else if (~sm[DEC+5 ]) m_cnt = -6;
+                                else if (~sm[DEC+4 ]) m_cnt = -5;
+                                else if (~sm[DEC+3 ]) m_cnt = -4;
+                                else if (~sm[DEC+2 ]) m_cnt = -3;
+                                else if (~sm[DEC+1 ]) m_cnt = -2;
+                                else if (~sm[DEC+0 ]) m_cnt = -1;
+                                else if (~sm[DEC-1 ]) m_cnt = 0;
+                                else                  m_cnt = 0;
+                        end
+                        else if ((~a_cnt_positive & (a_cnt == 1)) | (a_cnt == 0) | (a_cnt_positive & (a_cnt <= 6'd20)))  // [-1, 20] range
+                        begin
+                                if      (sm == 0)     m_cnt = -1;
+                                else if (sm[DEC+2 ])  m_cnt = (a_cnt) ? a_cnt + 9 : 1;
+                                else if (sm[DEC+1 ])  m_cnt = 50;
+                                else if (sm[DEC+0:DEC-15])                        // 0 to 15
+                                        if (sm[DEC+0:DEC-7])                            // 0 to 7
+                                            if (sm[DEC-0:DEC-3])                            // 0 to 3
+                                                if (sm[DEC-0:DEC-1])                            // 0 to 1
+                                                    if (sm[DEC-0]) m_cnt = 1;
+                                                    else           m_cnt = 0;
+                                                else                                            // 1 to 2
+                                                    if (sm[DEC-2]) m_cnt = 1;
+                                                    else           m_cnt = 2;
+                                            else                                            // 4 to 7
+                                                if (sm[DEC-4:DEC-6])                            // 4 to 5
+                                                    if (sm[DEC-4]) m_cnt = 3;
+                                                    else           m_cnt = 4;
+                                                else                                            // 6 to 7
+                                                    if (sm[DEC-6]) m_cnt = 5;
+                                                    else           m_cnt = 6;
+                                        else                                            // 8 to 15
+                                            if (sm[DEC-8:DEC-11])                               // 8 to 11
+                                                if (sm[DEC-8:DEC-9])                                // 8 to 9
+                                                    if (sm[DEC-8]) m_cnt = 7;
+                                                    else           m_cnt = 8;
+                                                else                                                // 10 to 11
+                                                    if (sm[DEC-10]) m_cnt = 9;
+                                                    else            m_cnt = 10;
+                                            else                                               // 12 to 15
+                                                if (sm[DEC-12:DEC-13])                              // 12 to 13
+                                                    if (sm[DEC-12]) m_cnt = 11;
+                                                    else            m_cnt = 12;
+                                                else                                                // 14 to 15
+                                                    if (sm[DEC-14]) m_cnt = 13;
+                                                    else            m_cnt = 14;
+                                else                                              // 16 to 33
+                                    if (sm[DEC-16:DEC-23])                              // 16 to 23
+                                        if (sm[DEC-16:DEC-19])                              // 16 to 19
+                                            if (sm[DEC-16:DEC-17])                              // 16 to 17
+                                                if (sm[DEC-16]) m_cnt = 15;
+                                                else            m_cnt = 16;
+                                            else                                                // 18 to 19
+                                                if (sm[DEC-18]) m_cnt = 17;
+                                                else            m_cnt = 18;
+                                        else                                                // 20 to 23
+                                            if (sm[DEC-20:DEC-21])                              // 20 to 21
+                                                if (sm[DEC-20]) m_cnt = 19;
+                                                else            m_cnt = 20;
+                                            else                                                // 22 to 23
+                                                if (sm[DEC-22]) m_cnt = 21;
+                                                else            m_cnt = 22; 
+                                    else if (sm[DEC-24:DEC-31])                             // 24 to 31
+                                        if (sm[DEC-24:DEC-27])                                  // 24 to 27
+                                            if (sm[DEC-24:DEC-25])                                  // 24 to 25
+                                                if (sm[DEC-24]) m_cnt = 23;
+                                                else            m_cnt = 24;
+                                            else                                                    // 26 to 27
+                                                if (sm[DEC-26]) m_cnt = 25;
+                                                else            m_cnt = 26;
+                                        else                                                     // 28 to 31
+                                            if (sm[DEC-28:DEC-29])                                  // 28 to 29
+                                                if (sm[DEC-28]) m_cnt = 27;
+                                                else            m_cnt = 28;
+                                            else                                                    // 30 to 31
+                                                if (sm[DEC-30]) m_cnt = 29;
+                                                else            m_cnt = 30;
+                                    else                                                        // 32 to 33
+                                            if (sm[DEC-32:DEC-33])                                  // 32 to 33
+                                                if (sm[DEC-32]) m_cnt = 31;
+                                                else            m_cnt = 32; // maximum shift count is 33
+                                            else
+                                                m_cnt = 33; // default case, should not happen
+                        end
+                        else 
+                        begin
+                            if (sm[DEC])       m_cnt = -1;
+                            else               m_cnt = (same_sign) ? 1'b0 : 1'b1;
+                        end
+                end
             end
         end
 
+    logic check_error;
+    assign check_error = ((pe != 0) & ((~a_cnt_positive) & (a_cnt >= 11) & (zs) & ((~mult_is_neg & zs & (zm[8:0] == 0))))) ? 1'b1 : 1'b0;
 
     ////////////// Step #7 - Normalization Mantissa and Exponent //////////////
     logic [136:0] mm;
@@ -259,6 +387,7 @@ module fma16(
     // Not a Step - Assign First Bit
     assign ms = (pe > {1'b0, ze}) ? ((~xs & ys) | (xs & ~ys)) : zs;//~(xs ^ ys) : zs;
 
+   
     //////////////////////////////////////////
     //               Flags                  //
     //////////////////////////////////////////
@@ -281,7 +410,7 @@ module fma16(
     assign uf = 0;
 
 
-
+    /**
     //////////////////////////////////////////
     //              Rounding                //
     //////////////////////////////////////////
@@ -303,7 +432,7 @@ module fma16(
     assign rnd_0 = {2'b01, mm_part+1'b1};
     assign rnd_1 = (zs) ? rnd_0[10] ? {ms, me[4:0]-5'b00001, mm_part} : {ms, me[4:0], mm_part} : {ms, me[4:0], mm_part};
     // assign rnd_1 = (zs) ? ((rnd_0[10]) ? {ms, me, rnd_0[9:0]} : {ms, me-5'b00001, {rnd_0[9:1], 1'b1}}) : ((rnd_0[11]) ? {ms, me+5'b00001, {rnd_0[9:1], 1'b0}} :  {ms, me, {rnd_0[10:2], 1'b1}});// {ms, me+5'b00001, {rnd_0[10:2], 1'b1}});
-    //((me[5]) ? -22 : (me[4]) ? {ms, me-5'b00001, {rnd_0[9:1], 1'b1}} : -21) : ((rnd_0[10]) ? -23 : (rnd_0[9]) ? -24 : {ms, me, {rnd_0[9:1], 1'b1}}); //{rnd_0[9:1], 1}} : -25;
+    // ((me[5]) ? -22 : (me[4]) ? {ms, me-5'b00001, {rnd_0[9:1], 1'b1}} : -21) : ((rnd_0[10]) ? -23 : (rnd_0[9]) ? -24 : {ms, me, {rnd_0[9:1], 1'b1}}); //{rnd_0[9:1], 1}} : -25;
 
 
     always_comb begin
@@ -331,7 +460,7 @@ module fma16(
         end
 
         // RZ
-        /**
+        
         if (~ms) begin
             if (of) res_rounded = inf_val;
             else    begin
@@ -352,8 +481,8 @@ module fma16(
                 else if   (      G &  (R|T))  res_rounded = trunc;
             end
         end
-        */
     end
+    */
 
 
     //////////////////////////////////////////
@@ -364,7 +493,7 @@ module fma16(
 
     // Combine together (no rounding yet)
     // I'll need to account for the possibility that z is negative in the future, since that'll change the sign bit
-    assign result = (x_zero | y_zero) ? {zs, ze_small, zm} : trunc;
+    assign result = (x_zero | y_zero) ? {zs, ze_small, zm} : {ms, me[4:0], mm_part};
     // assign result = (x_zero | y_zero) ? {zs, ze_small, zm} : zs ? {~mult_is_neg, pe, pm[DEC-2:DEC-11]} : trunc; //nx ? zs ? {ms, me[4:0]-1, 10'b11111_11111} : {ms, pe[4:0], 10'b00000_00001} : {ms, me[4:0], mm_part};
 
     assign flags = { nv, of, uf, nx }; // Invalid, Overflow, Underflow, Inexact
