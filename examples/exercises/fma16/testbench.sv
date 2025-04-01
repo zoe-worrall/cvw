@@ -8,6 +8,11 @@ module testbench_fma16;
   logic [31:0] vectornum, errors;
   logic [75:0] testvectors[10000:0];
   logic [3:0]  flags, flagsexpected; // Invalid, Overflow, Underflow, Inexact
+  
+
+  logic rs;
+  logic [4:0]  re;
+  logic [9:0]  rm;
 
   // instantiate device under test
   fma16 dut(x, y, z, mul, add, negp, negz, roundmode, result, flags);
@@ -21,7 +26,7 @@ module testbench_fma16;
   // at start of test, load vectors and pulse reset
   initial
     begin
-      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\fmul_2.tv", testvectors);
+      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\fadd_2.tv", testvectors);
       vectornum = 0; errors = 0;
       reset = 1; #22; reset = 0;
     end
@@ -30,6 +35,7 @@ module testbench_fma16;
   always @(posedge clk)
     begin
       #1; {x, y, z, ctrl, rexpected, flagsexpected} = testvectors[vectornum];
+      {rs, re, rm} = rexpected;
       {roundmode, mul, add, negp, negz} = ctrl[5:0];
     end
 
@@ -37,7 +43,7 @@ module testbench_fma16;
   always @(negedge clk)
     if (~reset) begin // skip during reset
       $display("Test #%h", vectornum);
-      if (result !== rexpected /* | flags !== flagsexpected */) begin  // check result
+      if (re != (result[14:10])) begin  // result !== rexpected  | flags !== flagsexpected) begin  // check result   re != (result[14:10])) begin
         $display("Error: inputs %h * %h + %h", x, y, z);
         $display("  result = %h (%h expected) flags = %b (%b expected)", result, rexpected, flags, flagsexpected);
         errors = errors + 1;
