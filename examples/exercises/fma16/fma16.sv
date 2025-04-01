@@ -120,7 +120,8 @@ module fma16(
     logic [7:0] m_cnt;
         always_comb begin // logic based off FMA Detailed Algorithm
             if (~a_cnt_positive & a_cnt >= 11) begin
-                m_cnt = same_sign ? -a_cnt : -a_cnt+1;
+                m_cnt = (a_cnt==11) ? -11 : (a_cnt==15) ? (same_sign) ? -15 : -14 : zs ? -a_cnt+1 : -a_cnt;
+                // m_cnt = same_sign ? -a_cnt : -a_cnt+1;
             end
             else if ((~a_cnt_positive & ((a_cnt < 11)) & (a_cnt >= 2))) begin
                 if (same_sign) begin
@@ -168,8 +169,8 @@ module fma16(
                     else  // if the signs are different, we need to check multiple bits ;-;. I'm doing this logarithmically to prevent bad timing/pathway issues
                 begin
                     if      (sm == 0)     m_cnt = -1;
-                    else if (sm[DEC+2 ])  m_cnt = -4;
-                    else if (sm[DEC+1 ])  m_cnt = -3;
+                    else if (sm[DEC+2 ])  m_cnt = (a_cnt) ? a_cnt + 9 : 1;
+                    else if (sm[DEC+1 ])  m_cnt = 50;
                     else if (sm[DEC+0:DEC-15])                        // 0 to 15
                             if (sm[DEC+0:DEC-7])                            // 0 to 7
                                 if (sm[DEC-0:DEC-3])                            // 0 to 3
