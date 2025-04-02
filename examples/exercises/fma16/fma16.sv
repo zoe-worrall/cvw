@@ -69,7 +69,7 @@ module fma16(
     assign {xs, xe, xm} = x;
     assign {ys, ye, ym} = y;
     assign {zs, ze_small, zm} = z;
-    assign ze = { 1'b0, ze_small }; // extend to 6 bits for consistency with pe (exponent of product)
+    assign ze = {1'b0, ze_small};
     assign mid_pm = {1'b1, xm} * {1'b1, ym};
 
     logic product_carried_1; 
@@ -90,13 +90,49 @@ module fma16(
 
 
     ////////////// Step #3 - Alignment Shift Count //////////////
-    logic [5:0] a_cnt;
+    logic [6:0] ac_0, a_cnt;
     logic       a_cnt_positive;
 
     // if pe is negative and ze is positive, then a_cnt will be negative, so we need to check if pe is greater than ze to determine if we need to shift left or right
-    assign a_cnt_positive = pe[4] ? ze[4] ? (pe[3:0] >= ze[3:0]) : 1'b1 : ze[4] ? 1'b0 : (pe[3:0] >= ze[3:0]); 
-    assign a_cnt = a_cnt_positive ? pe - ze : ze - pe;   // maximum is 32
+    // assign a_cnt_positive = pe[5] ? pe[4] ? ze[4] ? (pe[3:0] >= ze[3:0]) : 1'b1 : ze[4] ? 1'b0 : (pe[3:0] >= ze[3:0]) : 1'b1; 
+    
+    logic [5:0] sub;
 
+    // always_comb begin
+    //     sub = {pe[4:0] >>> 1} - {ze[3:0] >>> 2};
+    //     // if pe is negative and ze is positive, then a_cnt will be negative
+    //     if (pe[5])
+    //         if (ze[4])
+    //             if ((pe[4:0]) > (ze[3:0]))
+    //                 a_cnt_positive = 1'b1;
+    //             else
+    //                 a_cnt_positive = 1'b0;
+    //         else
+    //             a_cnt_positive = 1'b0;
+    //     else
+    //         if (ze[4])
+    //             a_cnt_positive = 1'b1;
+    //         else
+    //             if ((pe[4:0]) > (ze[3:0]))
+    //                 a_cnt_positive = 1'b1;
+    //             else
+    //                 a_cnt_positive = 1'b0;
+
+    // end
+
+    logic error;
+    assign error = (~ze[4] & (pe[4:0] == ze[4:0])) ? 1'b1 : 1'b0;
+
+    assign ac_0 = pe - ze;
+    assign a_cnt = (ac_0[6]) ? ({~ac_0[6], ~ac_0[5], ~ac_0[4], ~ac_0[3], ~ac_0[2], ~ac_0[1], ~ac_0[0]} + 1) : ac_0;
+    assign a_cnt_positive = (~ac_0[6]);
+
+    //assign a_cnt            = ((pe == 0) & ~ze[4]) ? ze : (pe == ze) ? ((~ze[4]) ? 0 : 32) : (ze[4]) ? ((pe[5]) ? (pe + ze) : (pe[4:0] == ze[4:0]) ? 32 : (pe - ze + 32)) : (pe[5]) ? (ze - pe) : ((pe < ze) ? (ze - pe) : (pe - ze));
+    
+    //assign a_cnt_positive   = ((pe == 0) & ~ze[4]) ? 0  : (pe == ze) ? ((~ze[4]) ? 1 : 1 ) : ((ze[4]) ? ((pe[5]) ?      0    : ((pe[4:0] == ze[4:0]) ? 1  :     1      )) : (pe[5]) ?    0      : ((pe < ze) ?    0      :    1    ));
+    
+    // assign a_cnt   = (ac_0[6]) ? ({~ac_0[6], ~ac_0[5], ~ac_0[4], ~ac_0[3], ~ac_0[2], ~ac_0[1], ~ac_0[0]} + 1) : ac_0; //  7'b0 : a_cnt_positive ? (pe - {ze >>> 1}) : ({ze >>> 1} - pe);   // maximum is 32
+    // assign a_cnt_positive = a_cnt[6];
 
     ////////////// Step #4 - Alignment Mantissa //////////////
     logic [MAX:0] zm_bf_shift;
@@ -150,12 +186,14 @@ module fma16(
                     else if (sm[DEC+2 ])  m_cnt = -3;
                     else if (sm[DEC+1 ])  m_cnt = -2;
                     else if (sm[DEC+0 ])  m_cnt = -1;
+                    else if (sm[DEC-1 ])  m_cnt =  0;
                     else                  m_cnt =  0;
                 end 
                 else 
                 begin
-                    if (sm[DEC])       m_cnt = -1;
-                    else               m_cnt = (same_sign) ? 1'b0 : 1'b1;
+                    if (pe[5])           m_cnt = (sm[DEC] & sm[DEC-1]) ? a_cnt-1 : a_cnt;
+                    else if (sm[DEC])    m_cnt = -1;
+                    else                 m_cnt =  0;
                 end
             end
             else // not same sign
@@ -163,8 +201,8 @@ module fma16(
                 if (zs) // z is negative
                  begin
                         if (~a_cnt_positive & a_cnt >= 11) begin   // [-inf, -11] range
-                            if ((pe != 0) & ((~a_cnt_positive) & (a_cnt >= 11) & (zs) & ((~mult_is_neg & zs & (zm[8:0] == 0))))) m_cnt = -a_cnt + 1;
-                            else                                                                                                 m_cnt = -a_cnt; 
+                            if      ((pe != 0) & ((~a_cnt_positive) & (a_cnt >= 11) & ((~mult_is_neg & zs & (zm[8:0] == 0))))) m_cnt = -a_cnt + 1;
+                            else                                                                                               m_cnt = -a_cnt; 
                             
                             // m_cnt = (a_cnt==11) ? -11 : (a_cnt==15) ? (same_sign) ? -15 : -14 : zs ? -a_cnt+1 : -a_cnt;
                         end
@@ -269,7 +307,9 @@ module fma16(
                 else // z is positive
                 begin
                         if (~a_cnt_positive & a_cnt >= 11) begin   // [-inf, -11] range
-                            m_cnt = -a_cnt; // m_cnt = (a_cnt==11) ? -11 : (a_cnt==15) ? (same_sign) ? -15 : -14 : zs ? -a_cnt+1 : -a_cnt;
+                            if ((pe != 0) & ((~a_cnt_positive) & (a_cnt >= 11) & ((mult_is_neg & ~zs & (zm[8:0] == 0))))) m_cnt = -a_cnt + 1;
+                            else                                                                                          m_cnt = -a_cnt; 
+                            // m_cnt = (a_cnt==11) ? -11 : (a_cnt==15) ? (same_sign) ? -15 : -14 : zs ? -a_cnt+1 : -a_cnt;
                         end
                         else if ((~a_cnt_positive & ((a_cnt < 11)) & (a_cnt >= 2)))   // (-11, -2] range
                         begin
@@ -373,7 +413,10 @@ module fma16(
         end
 
     logic check_error;
-    assign check_error = ((pe != 0) & ((~a_cnt_positive) & (a_cnt >= 11) & (zs) & ((~mult_is_neg & zs & (zm[8:0] == 0))))) ? 1'b1 : 1'b0;
+    assign check_error = ((pe != 0) & ((~a_cnt_positive) & (a_cnt >= 11) & ((~mult_is_neg & zs & (zm[8:0] == 0))))) ? 1'b1 : 1'b0;
+
+    logic check_error_2;
+    assign check_error_2 = ((pe != 0) & ((~a_cnt_positive) & (a_cnt >= 11) & ((mult_is_neg & ~zs & (zm[8:0] == 0))))) ? 1'b1 : 1'b0;
 
     ////////////// Step #7 - Normalization Mantissa and Exponent //////////////
     logic [136:0] mm;
@@ -493,7 +536,7 @@ module fma16(
 
     // Combine together (no rounding yet)
     // I'll need to account for the possibility that z is negative in the future, since that'll change the sign bit
-    assign result = (x_zero | y_zero) ? {zs, ze_small, zm} : {ms, me[4:0], mm_part};
+    assign result = (x_zero | y_zero) ? {zs, ze, zm} : {ms, me[4:0], mm_part};
     // assign result = (x_zero | y_zero) ? {zs, ze_small, zm} : zs ? {~mult_is_neg, pe, pm[DEC-2:DEC-11]} : trunc; //nx ? zs ? {ms, me[4:0]-1, 10'b11111_11111} : {ms, pe[4:0], 10'b00000_00001} : {ms, me[4:0], mm_part};
 
     assign flags = { nv, of, uf, nx }; // Invalid, Overflow, Underflow, Inexact
