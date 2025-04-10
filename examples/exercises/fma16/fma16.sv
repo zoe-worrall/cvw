@@ -44,11 +44,13 @@ parameter nan_val = 16'b0_11111_1000000000;
 
 parameter neg_zero = 16'b1_00000_0000000000;
 
+// Assigning Base Variables
 logic x_zero, y_zero, z_zero; assign x_zero = ((x==0) | (x==neg_zero));               assign y_zero = ((y==0) | (y==neg_zero));              assign z_zero = ((z==0) | (z==neg_zero));
 logic x_inf, y_inf, z_inf;    assign x_inf  = (x==16'b0_11111_0000000000);            assign y_inf = (y==16'b0_11111_0000000000);            assign z_inf = (z==16'b0_11111_0000000000);
 logic x_nan, y_nan, z_nan;    assign x_nan  = ((x[15:10]==6'b011_111) & (x[9:0]!=0)); assign y_nan = ((y[15:10]==6'b011_111) & (y[9:0]!=0)); assign z_nan = ((z[15:10]==6'b011_111) & (z[9:0]!=0));
 logic x_one, y_one, z_one;    assign x_one  = (x==16'b0_01111_0000000000);            assign y_one = (y==16'b0_01111_0000000000);            assign z_one = (z==16'b0_01111_0000000000);
 
+// Assigning Sections and Multiples
 assign {xs, xe, xm} = x;
 assign {ys, ye, ym} = y;
 assign {zs, ze, zm} = z;
@@ -56,9 +58,6 @@ assign mid_pm = {1'b1, xm} * {1'b1, ym};
 
 logic ps;
 assign ps = (xs ^ ys) ? 1'b1 : 1'b0; // x * y is negative if one of them is negative
-
-logic product_carried; 
-assign product_carried = mid_pm[21];
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Step #1 - Product Mantissa
