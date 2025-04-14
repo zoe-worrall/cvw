@@ -26,7 +26,7 @@ module testbench_fma16;
   // at start of test, load vectors and pulse reset
   initial
     begin
-      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\fmul_1_neg.tv", testvectors);
+      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\fma_nan_rz_n.tv", testvectors);
       vectornum = 0; errors = 0;
       reset = 1; #22; reset = 0;
     end
@@ -42,7 +42,7 @@ module testbench_fma16;
   // check results on falling edge of clk
   always @(negedge clk)
     if (~reset) begin // skip during reset
-      $display("Test #%h", vectornum);
+      // $display("Test #%h", vectornum);
       if (result != rexpected | flags !== flagsexpected) begin
         $display("Error: inputs %h * %h + %h", x, y, z);
         $display("  result = %h (%h expected) flags = %b (%b expected)", result, rexpected, flags, flagsexpected);
@@ -50,8 +50,7 @@ module testbench_fma16;
       end
       vectornum = vectornum + 1;
       if (testvectors[vectornum] === 'x) begin 
-        $display("%d tests completed with %d errors", 
-	           vectornum, errors);
+        $display("%d tests completed with %d errors",  vectornum, errors);
         $stop;
       end
     end

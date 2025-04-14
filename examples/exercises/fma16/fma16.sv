@@ -40,7 +40,7 @@ logic [5:0]   pe;
 logic         xs, ys, zs, ms;
 
 parameter inf_val = 16'b0_11111_0000000000;
-parameter nan_val = 16'b0_11111_1000000000;
+parameter nan_val = 16'b0_111_11_1000000000;
 
 parameter neg_zero = 16'b1_00000_0000000000;
 
@@ -197,7 +197,7 @@ always_comb begin
     else        m_shift = m_cnt_2;
 end
 
-// logic [8:0] error;
+// logic [1:0] error;
 // assign error = ((pe != 16) & pe[5] & ze[4] & (pe[4:0] < ze)) ? pe - ze - 32 : pe - ze;
 
 // logic error_2;
@@ -223,7 +223,7 @@ assign sum_pe = { {2{pe[5]}}, pe} + pos_m_shift;
 logic [7:0] dif_pe;
 assign dif_pe = { {2{pe[5]}}, pe} - m_shift;
 
-assign me = ( m_shift == 8'b0) ? (pe[4:0]) : (m_shift[7]) ?  sum_pe[4:0] : dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
+assign me = (pe == {1'b0, ze} & (mm == 0)) ? 0 : ( m_shift == 8'b0) ? (pe[4:0]) : (m_shift[7]) ?  sum_pe[4:0] : dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
 
 assign mm = m_shift[7] ? (sm >>> pos_m_shift) : sm <<< m_shift; // (m_shift[7]) ? sm >> m_shift : sm >> m_shift;
 
@@ -243,6 +243,21 @@ assign mult = (x_nan | y_nan | z_nan) ? nan_val : {ms, me, mm_part};
 //               Flags                  //
 //////////////////////////////////////////
 
+// Check to see (if inexact) how rounding might need to work
+logic [15:0] mult_nx;
+logic [1:0] which_nx;
+
+logic [5:0] diff_count;
+assign diff_count = ({1'b0, pe} > {2'b00, ze}) ? ({1'b0, pe} - {2'b00, ze}) : ({2'b00, ze} - {1'b0, pe});
+
+assign which_nx = ((zs ^ ps) & (diff_count > 30)) ? ((zm == 0) ? 0 : 3) : ((mid_pm[21:20] == 2'b10) ? ((mid_pm[20:11] == 0) ? 1 : 3) : ((mid_pm[19:10] == 0) ? 2 : 3));
+
+assign mult_nx = (which_nx == 0) ? {ms, ze-1'b1, zm-1'b1} : {ms, me, mm_part};
+
+logic error;
+assign error = ((x_zero & y_inf) | (y_zero & x_inf) | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff))); 
+
+
 logic raise_flag;
 assign raise_flag = (x_nan | y_nan | z_nan | (x_zero & y_inf) | (y_zero & x_inf));
 
@@ -252,19 +267,21 @@ logic nv, of, uf, nx; // invalid, overflow, underflow, inexact
 assign of = 1'b0; // me[5] ? 1'b1 : 1'b0;
 
 // inexact if the result is not exact to the actual value
-assign nx = ((mm - {63'b0, 1'b1, mm_part, 63'b0}) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this isn't an accurate solution
+assign nx = (mm == 0) ? 1'b0 : ((mm - {63'b0, 1'b1, mult_nx[9:0], 63'b0}) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this isn't an accurate solution
 
 // Invalid if any input is NaN
-assign nv = (x_nan | y_nan | z_nan);
+assign nv = ((x_zero & y_inf) | (y_zero & x_inf) | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
 
 
 assign uf = 0;
 
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// assign error = (zs ^ ps) ? ((zm == 0) ? 0 : 3) : ((mid_pm[21:20] == 2'b10) ? ((mid_pm[20:11] == 0) ? 1 : 3) : ((mid_pm[19:10] == 0) ? 2 : 3));
 
-assign result = (x_nan | y_nan | z_nan) ? nan_val : (x_zero | y_zero) ? z : mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// {((xs^ys) & zs), 15'b0}
+
+assign result = (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | x_nan)) | (y_zero & (x_inf | x_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  : mult_nx; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
 assign flags = {nv, of, uf, nx}; // { invalid, overflow, underflow, inexact }
 
 
