@@ -247,7 +247,7 @@ assign mult = (x_nan | y_nan | z_nan) ? nan_val : {ms, me, mm_part};
 logic [15:0] mult_nx;
 logic [1:0] which_nx;
 
-logic [5:0] diff_count;
+logic [6:0] diff_count;
 assign diff_count = ({1'b0, pe} > {2'b00, ze}) ? ({1'b0, pe} - {2'b00, ze}) : ({2'b00, ze} - {1'b0, pe});
 
 assign which_nx = ((zs ^ ps) & (diff_count > 30)) ? ((zm == 0) ? 0 : 3) : ((mid_pm[21:20] == 2'b10) ? ((mid_pm[20:11] == 0) ? 1 : 3) : ((mid_pm[19:10] == 0) ? 2 : 3));
