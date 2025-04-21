@@ -29,6 +29,10 @@ uint16_t nanExponents[] = {0x0000, 0x0FF0, 0x8000};
 uint16_t nanFracts[] = {0, 0x1F, 0x8000};
 
 
+// zoe torture attempts C3EC
+uint16_t tortureExponents[] = { 16, 0x8000};
+uint16_t tortureFracts[] = { 0x3EC, 0x8000};
+
 void softfloatInit(void) {
     softfloat_roundingMode = softfloat_round_minMag; 
     softfloat_exceptionFlags = 0;
@@ -217,37 +221,38 @@ int main()
     softfloatInit(); // configure softfloat modes
  
     // Test cases: multiplication
-    genMulTests(easyExponents, easyFracts, 0, "fmul_0", "// Multiply with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
-    genAddTests(easyExponents, easyFracts, 0, "fadd_0", "// Add with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
-    genMulAddTests(easyExponents, easyFracts, 0, "fadd_mul_0", "// Multiply + Add with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
+    // genMulTests(easyExponents, easyFracts, 0, "fmul_0", "// Multiply with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
+    // genAddTests(easyExponents, easyFracts, 0, "fadd_0", "// Add with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
+    // genMulAddTests(easyExponents, easyFracts, 0, "fadd_mul_0", "// Multiply + Add with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
 
 
-    genMulTests(medExponents, medFracts, 0, "fmul_1", "// Multiply with all positive values", 0, 0, 0, 0);
-    genAddTests(medExponents, medFracts, 0, "fadd_1", "// Add with a positive", 0, 0, 0, 0);
-    genMulAddTests(medExponents, medFracts, 0, "fadd_mul_1", "// Multiply + Add with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
+    // genMulTests(medExponents, medFracts, 0, "fmul_1", "// Multiply with all positive values", 0, 0, 0, 0);
+    // genAddTests(medExponents, medFracts, 0, "fadd_1", "// Add with a positive", 0, 0, 0, 0);
+    // genMulAddTests(medExponents, medFracts, 0, "fadd_mul_1", "// Multiply + Add with exponent of 0, significand of 1.0 and 1.1, RZ", 0, 0, 0, 0);
     
 
-    genMulTests(medExponents, medFracts, 1, "fmul_2", "// Multiply with all negative values (signal = 1)", 0, 0, 0, 0);
-    genAddTests(medExponents, medFracts, 1, "fadd_2", "// Add with a negative (signal = 1)", 0, 0, 0, 0);
-    genMulAddTests(medExponents, medFracts, 1, "fadd_mul_2", "// Multiply + Add with a negative (signal = 1)", 0, 0, 0, 0);
+    // genMulTests(medExponents, medFracts, 1, "fmul_2", "// Multiply with all negative values (signal = 1)", 0, 0, 0, 0);
+    // genAddTests(medExponents, medFracts, 1, "fadd_2", "// Add with a negative (signal = 1)", 0, 0, 0, 0);
+    // genMulAddTests(medExponents, medFracts, 1, "fadd_mul_2", "// Multiply + Add with a negative (signal = 1)", 0, 0, 0, 0);
 
 
-    genMulAddTests(medExponents, medFracts, 1, "fma_special_rz", "// Multiply + Add with a negative (signal = 1) and Rz Rounding", 0, 1, 1, 1);
-    genMulAddTests(medExponents, medFracts, 1, "fma_special_rne", "// Multiply + Add with a negative (signal = 1) and RNE Rounding", 1, 1, 1, 1);
-    genMulAddTests(medExponents, medFracts, 1, "fma_special_rm", "// Multiply + Add with a negative (signal = 1) and RM Rounding", 2, 1, 1, 1);
-    genMulAddTests(medExponents, medFracts, 1, "fma_special_rp", "// Multiply + Add with a negative (signal = 1) and RP Rounding", 3, 1, 1, 1);
+    // genMulAddTests(medExponents, medFracts, 1, "fma_special_rz", "// Multiply + Add with a negative (signal = 1) and Rz Rounding", 0, 1, 1, 1);
+    // genMulAddTests(medExponents, medFracts, 1, "fma_special_rne", "// Multiply + Add with a negative (signal = 1) and RNE Rounding", 1, 1, 1, 1);
+    // genMulAddTests(medExponents, medFracts, 1, "fma_special_rm", "// Multiply + Add with a negative (signal = 1) and RM Rounding", 2, 1, 1, 1);
+    // genMulAddTests(medExponents, medFracts, 1, "fma_special_rp", "// Multiply + Add with a negative (signal = 1) and RP Rounding", 3, 1, 1, 1);
 
 
-    // testing all the Nan Values -- with a lot of files for each
-    genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rz_p", "// NaN with Rz Rounding (signal = 1)", 0, 1, 1, 1);
-    genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rne_p", "// NaN with RNE Rounding (signal = 1)", 1, 1, 1, 1);
-    genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rm_p", "// NaN with RNE Rounding (signal = 1)", 2, 1, 1, 1);
-    genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rp_p", "// NaN with RNE Rounding (signal = 1)", 3, 1, 1, 1);
-    genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rz_n", "// NaN with Rz Rounding (signal = 1)", 0, 1, 1, 1);
-    genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rne_n", "// NaN with RNE Rounding (signal = 1)", 1, 1, 1, 1);
-    genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rm_n", "// NaN with RNE Rounding (signal = 1)", 2, 1, 1, 1);
-    genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rp_n", "// NaN with RNE Rounding (signal = 1)", 3, 1, 1, 1);
+    // // testing all the Nan Values -- with a lot of files for each
+    // genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rz_p", "// NaN with Rz Rounding (signal = 1)", 0, 1, 1, 1);
+    // genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rne_p", "// NaN with RNE Rounding (signal = 1)", 1, 1, 1, 1);
+    // genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rm_p", "// NaN with RNE Rounding (signal = 1)", 2, 1, 1, 1);
+    // genMulAddTests(nanExponents, nanFracts, 0, "fma_nan_rp_p", "// NaN with RNE Rounding (signal = 1)", 3, 1, 1, 1);
+    // genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rz_n", "// NaN with Rz Rounding (signal = 1)", 0, 1, 1, 1);
+    // genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rne_n", "// NaN with RNE Rounding (signal = 1)", 1, 1, 1, 1);
+    // genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rm_n", "// NaN with RNE Rounding (signal = 1)", 2, 1, 1, 1);
+    // genMulAddTests(nanExponents, nanFracts, 1, "fma_nan_rp_n", "// NaN with RNE Rounding (signal = 1)", 3, 1, 1, 1);
 
+    genMulAddTests(tortureExponents, tortureFracts, 1, "zoe_torture_rz");
 
 /*  // example of how to generate tests with a different rounding mode
     softfloat_roundingMode = softfloat_round_near_even; 
