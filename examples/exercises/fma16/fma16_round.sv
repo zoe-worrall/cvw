@@ -18,7 +18,7 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
     );
 
     // Internal Logic: The Least Significant, Guarding, Rounding, and Truncation bits
-    logic LSb, G, R, round_val;
+    logic LSb, G, R, T, round_val;
     logic [VEC_SIZE:0] trunc, round;
 
     // Assigns the LSb, G, R, and T values based on the mantissa (mm)
@@ -29,8 +29,8 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
     assign round_val = G; // G&(R | T); // if G > 1 (0.5) and R|T > 1 (> 0.5), then trunc should be 1. otherwise, 0
 
     // Calculate both the truncation and rounding values before assigning them
-    assign trunc = { mm[(VEC_SIZE-1):(END_BITS+11)], round_val, mm[(END_BITS+9):0] } ; // the adjusted sum of the product and z mantissas
-    assign round = trunc - { {VEC_SIZE{1'b0}}, -1'b1, (END_BITS+10)'(1'b0) }; // the adjusted sum of the product and z mantissas
+    assign trunc = { mm[(VEC_SIZE-1):(END_BITS+11)], round_val, mm[(END_BITS+10):0] } ; // the adjusted sum of the product and z mantissas
+    assign round = trunc - { {(VEC_SIZE-END_BITS-10-1){1'b0}}, 1'b1, (END_BITS+10)'(1'b0) }; // the adjusted sum of the product and z mantissas
 
     // Short Combination block to check all cases of round mode
     always_comb begin
@@ -40,7 +40,7 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
             2'b00: fin_mm = mm;
             
             // round to even - if the LSB is 1, then we need to round to the nearest 0 (either up or down)
-            2'b01: fin_mm = (LSb) ? mm + { {VEC_SIZE{1'b0}}, 1, (END_BITS+10)'(1'b0) } : round;
+            2'b01: fin_mm = (LSb) ? mm + { {(VEC_SIZE-END_BITS-10-1){1'b0}}, 1'b1, (END_BITS+10)'(1'b0) } : round;
             
             // round down (toward negative infinity) - we need to round down in every case
             2'b10: fin_mm = (~ms & (G|R))    ? round : trunc; // round down (toward negative infinity)

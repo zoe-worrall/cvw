@@ -34,6 +34,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     logic [VEC_SIZE:0] am; // aligned zm for sum
     logic [VEC_SIZE:0] pm; // aligned pm for sum
 
+    logic extra;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Adjustment Variable Calculations
@@ -56,8 +57,8 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         //     - As opposed to a_cnt, diff_count is a signed value that
         //         tells the exact difference between pe and ze
         //
-        if (({1'b0,pe}>{2'b00,ze}))      diff_count = ({1'b0,pe} - {2'b00,ze});
-        else                             diff_count = ({2'b00,ze} - {1'b0,pe});
+        if (({1'b0,pe}>{2'b00,ze}))  {extra, diff_count} = ({1'b0,pe} - {2'b00,ze});
+        else                         {extra, diff_count} = ({2'b00,ze} - {1'b0,pe});
 
         // Assigning which_nx
         //    This is used to determine what should be done if either z or the
@@ -77,12 +78,13 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
             if (no_product) subtract_1 = 0;
             else            subtract_1 = (am=='0);
         else                subtract_1 = 0;
-
-        // Assigning no_product (used to determine if product is zero/subnormal)
-        //      - if either x or y is zero, then the product is zero
-        //
-        no_product = ((~x_zero) & (xe==0)) | ((~y_zero) & (ye==0)) | (a_cnt[5]&(~z_zero));
     end
+
+
+    // Assigning no_product (used to determine if product is zero/subnormal)
+    //      - if either x or y is zero, then the product is zero
+    //
+    assign no_product = ((~x_zero) & (xe==0)) | ((~y_zero) & (ye==0)) | (a_cnt[5]&(~z_zero));
 
     assign ms = (pm > am) ? ((xs & ~ys) | (~xs & ys)) : zs;  // calculating final sign of result
 
@@ -90,8 +92,8 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     // Addition
     ///////////////////////////////////////////////////////////////////////////////
    
-    assign am = (a_cnt[5]) ? { {VEC_SIZE{1'b0}}, 1'b1, zm, {(END_BITS+10)'(1'b0)} } << (~a_cnt + 1'b1) : ( { {VEC_SIZE{1'b0}}, 1'b1, zm, {(END_BITS+10)'(1'b0)} } >> a_cnt);
-    assign pm = (x_zero | y_zero) ? 0 : { {VEC_SIZE{1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
+    assign am = (a_cnt[5]) ? { {(VEC_SIZE-END_BITS-10-10){1'b0}}, 1'b1, zm, {(END_BITS+10)'(1'b0)} } << (~a_cnt + 1'b1) : ( { {(VEC_SIZE-END_BITS-10-10){1'b0}}, 1'b1, zm, {(END_BITS+10)'(1'b0)} } >> a_cnt);
+    assign pm = (x_zero | y_zero) ? 0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
 
     // Calculates the proper shifting (m_shift) and the sum of pm and am
     fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.pm, .am, .z_zero, .a_cnt, .no_product, .diff_sign(~z_zero & (zs ^ ps)), .m_shift, .sm);
