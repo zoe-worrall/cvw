@@ -30,8 +30,8 @@ module fma16(
     ///////////////////////////////////////////////////////
 
     // Parameters for the size of vectors within the system
-    parameter WIDTH = 53;   // the size of a the vector used when summing/multiplying
-    parameter ENDING_ZEROS = 2; // the number of extra zeros at the end that aid in rounding
+    parameter WIDTH = 106;   // the size of a the vector used when summing/multiplying
+    parameter ENDING_ZEROS = 53; // the number of extra zeros at the end that aid in rounding
     parameter nan_val = 16'b0_111_11_1000000000;
 
     // Components of x, y, and z
@@ -113,7 +113,7 @@ module fma16(
 
 
     ///////////////////////////////////////////////////////////////////////////////
-    // Calculate the Adjustments and Flags of the System
+    // Calculate the Adjustments and Variables of the System
     //      - Calculates adjustment flags that are used to further correct
     //      - Calculates the summation of the product (pm) and addend (am)
     //      - Calculates the decimal shift necessary to adjust final result
@@ -125,7 +125,6 @@ module fma16(
                                                         .x_zero, .y_zero, .z_zero, // whether x, y, z are zero
 
                                                         .a_cnt,   // exponent difference
-                                                        .am, .pm, // aligned am and pm
                                                         .m_shift, // shift amount for leading 1's
 
                                                         .which_nx, .diff_count, .no_product, .subtract_1, 
@@ -167,7 +166,8 @@ module fma16(
     assign of = 1'b0; // me[5] ? 1'b1 : 1'b0;
 
     // inexact if the result is not exact to the actual value
-    assign nx = (mm == 0) ? 1'b0 : ((mm - {{WIDTH{1'b0}}, 1'b1, mult[9:0], {(ENDING_ZEROS)'(1'b0)}}) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this isn't an accurate solution
+    assign nx = (mm == 0) ? 1'b0 : ((mm - { {WIDTH{1'b0}}, 1'b1, mult[9:0], (10+ENDING_ZEROS)'(1'b0) }) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this 
+    //assign nx = ((x_zero | y_zero) & z_zero) ? 1'b0 : (mm == 0) ? 1'b0 : ((diff_count > 30) | (mm - {{WIDTH{1'b0}}, 1'b1, mult[9:0], {(ENDING_ZEROS+10)'(1'b0)}}) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this isn't an accurate solution
 
     // Invalid if any input is NaN
     assign nv = ((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));

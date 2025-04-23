@@ -20,14 +20,7 @@ module fma16_pcalc(
     );
 
     assign ps = xs ^ ys; // product sign
-
     assign pe = (x_zero | y_zero) ? '0 : (xe + ye - 5'b01111); // product exponent
-
-    // define the product bits of x/y before multiplying in case one is subnormal
-    logic x_front, y_front;
-    assign x_front = (xe == 0) ? 1'b0 : 1'b1; // 0 if subnormal
-    assign y_front = (ye == 0) ? 1'b0 : 1'b1; // 0 if subnormal
-    
-    assign mid_pm = {x_front, xm} * {y_front, ym}; // product of mantissa
+    assign mid_pm = {(xe!=0), xm} * {(ye!=0), ym}; // product of mantissa
 
 endmodule
