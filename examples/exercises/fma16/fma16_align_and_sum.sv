@@ -84,7 +84,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         no_product = ((~x_zero) & (xe==0)) | ((~y_zero) & (ye==0)) | (a_cnt[5]&(~z_zero));
     end
 
-    assign ms = (pm > am) ? ((xs & ~ys) | (~xs & ys)) : zs; //(pe > ze) ? (pe[4:0] == ze) ? () ? ((xs & ~ys) | (~xs & ys)) : zs : ((~xs & ys) | (xs & ~ys)) : zs;//~(xs ^ ys) : zs;
+    assign ms = (pm > am) ? ((xs & ~ys) | (~xs & ys)) : zs;  // calculating final sign of result
 
     ///////////////////////////////////////////////////////////////////////////////
     // Addition

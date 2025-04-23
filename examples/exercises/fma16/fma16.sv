@@ -1,9 +1,10 @@
     /**
-        A module that runs fma16
+        A module that runs an fma16 calculation
+        Takes in x, y as multipliers and z as an addend
 
         Zoe Worrall - zworrall@g.hmc.edu
         E154 System on Chip
-        February 12, 2025
+        April 23, 2025
     */
 
 module fma16(
@@ -49,6 +50,9 @@ module fma16(
     logic [4:0] me; // the exponent of the final result
     logic [WIDTH:0] mm; // the mantissa of the final result
 
+
+
+
     // list of definitions for whether x, y, and z are zero, infinity, or NaN
     logic x_zero, x_inf, x_nan;  // whether x is zero, infinity, or NaN
     logic y_zero, y_inf, y_nan;  // whether y is zero, infinity, or NaN
@@ -57,8 +61,13 @@ module fma16(
     logic subtract; // whether the system should subtract z from x*y
     logic can_add, can_multiply; // whether the system can add / multiply
     logic no_product, subtract_1, which_nx; // if the product is zero/subnormal
-    logic [5:0] diff_count;
+    logic [5:0] diff_count; // the difference between the exponents of the product and z
     
+
+
+
+    // Final Variables (from the FMA algorithm); these are what are added/tell exactly what is being added
+
     logic [WIDTH:0] am;  // zm adjusted to be centered in a vector of WIDTH size based on a_cnt
     logic [WIDTH:0] pm;  // the product of the mantissa adjusted to be centered in a vector of WIDTH size
     logic [WIDTH:0] sm;  // the sum of the product and z mantissas
@@ -68,8 +77,7 @@ module fma16(
     logic [7:0] m_shift; // additional adjustment atop the adjustment of ze and pe
 
     logic [15:0] mult; // Potential final result if no NaN, Zero, or Infinity issues
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+   
     //  OpCtrl:
     //    Fma: {not multiply-add?, negate prod?, negate Z?}
     //        000 - fmadd
@@ -81,6 +89,11 @@ module fma16(
     //        111 - sub
     logic [2:0]   op_ctrl = { mul|add, negp, negz };
     
+
+
+
+    ////////////////////// Calculations //////////////////////
+
     ///////////////////////////////////////////////////////////////////////////////
     // Calculate The Constants of the system
     //      - Assigns the signs, exponents, and mantissas of x, y, and z
@@ -97,7 +110,6 @@ module fma16(
                                         .x_inf, .y_inf, .z_inf,    // assigning whether x, y, z are infinity
                                         .x_nan, .y_nan, .z_nan     // assigning whether x, y, z are NaN
     );
-
 
     ///////////////////////////////////////////////////////////////////////////////
     // Calculate the Products of the system
@@ -131,21 +143,23 @@ module fma16(
                                                         
                                                         .ms, .sm // which nx to use and the difference between the exponents
     );
-
+    
 
     ///////////////////////////////////////////////////////////////////////////////
     // Calculate a Potential Result that will be used if the system is not NaN, Inf, or Zero
     //      - Calculates the result of the system
     //      - Calculates the final exponent and mantissa of the result
+    //      - Rounds the result based on the rounding mode of the system
     ///////////////////////////////////////////////////////////////////////////////
 
     fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
                                                      .ms, .m_shift, // the sum of the mantissa and the shift amount
                                                      .which_nx, .subtract_1,   // which nx to use, 
+                                                     .roundmode,     // the rounding mode of the system
                                                      .ze, .pe, .zm,  // the exponent and mantissa of z
                                                      
                                                      // outputs (final result without taking errors into account)
-                                                     .me, .mm, .mult // the exponent and mantissa of the result
+                                                     .me, .fin_mm(mm), .mult // the exponent and mantissa of the result
     );
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -176,8 +190,12 @@ module fma16(
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    assign result = (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | x_nan)) | (y_zero & (x_inf | x_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
+    // Assigning the flags of the system; these are used to determine if the result is valid or not
     assign flags = {nv, of, uf, nx}; // { invalid, overflow, underflow, inexact }
+
+    // Assign result based on the NaN, Zero, and Infinity values of the system; apply these rules before assigning mult
+    assign result = (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | x_nan)) | (y_zero & (x_inf | x_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
+    
 
 
     endmodule
