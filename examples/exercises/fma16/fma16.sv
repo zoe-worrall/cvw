@@ -31,8 +31,8 @@ module fma16(
     ///////////////////////////////////////////////////////
 
     // Parameters for the size of vectors within the system
-    parameter WIDTH = 106;   // the size of a the vector used when summing/multiplying
-    parameter ENDING_ZEROS = 53; // the number of extra zeros at the end that aid in rounding
+    parameter WIDTH = 60;   // the size of a the vector used when summing/multiplying
+    parameter ENDING_ZEROS = 2; // the number of extra zeros at the end that aid in rounding
     parameter nan_val = 16'b0_111_11_1000000000;
 
     // Components of x, y, and z
@@ -60,7 +60,8 @@ module fma16(
 
     logic subtract; // whether the system should subtract z from x*y
     logic can_add, can_multiply; // whether the system can add / multiply
-    logic no_product, subtract_1, which_nx; // if the product is zero/subnormal
+    logic no_product, z_visible, subtract_1; // if the product is zero/subnormal
+    logic [1:0] which_nx; // whether the product or z is inexact ( [ z is inexact, product is inexact] )
     logic [5:0] diff_count; // the difference between the exponents of the product and z
     
 
@@ -98,10 +99,10 @@ module fma16(
     // Calculate The Constants of the system
     //      - Assigns the signs, exponents, and mantissas of x, y, and z
     //      - Assigns whether x, y, and z are zero, infinity, or NaN
-    //      - Assigns operation control bits
+    //      - Assigns operation control bits **classificiations
     ///////////////////////////////////////////////////////////////////////////////
 
-    fma16_constant_assigner cons_assign(.x, .y, .z,           // x, y, and z for fma16
+    fma16_classification classifier(.x, .y, .z,           // x, y, and z for fma16
                                         .op_ctrl,             // operation control bits
                                         .xs, .ys, .zs,        // the signs of x, y, z
                                         .xe, .ye, .ze,        // the exponents of x, y, z
@@ -139,7 +140,7 @@ module fma16(
                                                         .a_cnt,   // exponent difference
                                                         .m_shift, // shift amount for leading 1's
 
-                                                        .which_nx, .diff_count, .no_product, .subtract_1, 
+                                                        .which_nx, .diff_count, .subtract_1, .z_visible,
                                                         
                                                         .ms, .sm // which nx to use and the difference between the exponents
     );
@@ -154,12 +155,13 @@ module fma16(
 
     fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
                                                      .ms, .m_shift, // the sum of the mantissa and the shift amount
-                                                     .which_nx, .subtract_1,   // which nx to use, 
+                                                     .which_nx, .subtract_1, .z_visible,   // which nx to use, 
                                                      .roundmode,     // the rounding mode of the system
-                                                     .ze, .pe, .zm,  // the exponent and mantissa of z
+                                                     .zs, .ze, .pe, .zm,  // the exponent and mantissa of z
                                                      
                                                      // outputs (final result without taking errors into account)
-                                                     .me, .fin_mm(mm), .mult // the exponent and mantissa of the result
+                                                     .me, // .fin_mm(mm),
+                                                      .mult // the exponent and mantissa of the result
     );
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -180,7 +182,7 @@ module fma16(
     assign of = 1'b0; // me[5] ? 1'b1 : 1'b0;
 
     // inexact if the result is not exact to the actual value
-    assign nx = (mm == 0) ? 1'b0 : ((mm - { {(WIDTH-1-10-10-ENDING_ZEROS){1'b0}}, 1'b1, mult[9:0], (10+ENDING_ZEROS)'(1'b0) }) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this 
+    assign nx = 1'b1; //(mm == 0) ? 1'b0 : ((mm - { {(WIDTH-1-10-10-ENDING_ZEROS){1'b0}}, 1'b1, mult[9:0], (10+ENDING_ZEROS)'(1'b0) }) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this 
     
     // Invalid if any input is NaN
     assign nv = ((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));

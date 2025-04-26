@@ -6,7 +6,7 @@
     April 22, 2025
 */
 
-module fma16_constant_assigner(
+module fma16_classification(
     input  logic [15:0] x, y, z,  // the multiplicand, multiplier, and addend of this fma16 instruction
     input  logic [2:0]  op_ctrl,  // bits indicating mul, add, negp, and negz signals to the board
 

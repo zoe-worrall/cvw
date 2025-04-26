@@ -10,7 +10,7 @@
 module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
         input  logic [VEC_SIZE:0] pm, // centered product mantissa
         input  logic [VEC_SIZE:0] am, // centered added mantissa
-        input  logic [5:0]        a_cnt, // exponent difference between pe and ze for adjusting
+        input  logic [6:0]        a_cnt, // exponent difference between pe and ze for adjusting
 
         input  logic              no_product, // whether the product is zero/subnormal
         input  logic              diff_sign,  // whether the product and z have different signs
@@ -22,7 +22,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
 
     // Internal Logic
     logic [VEC_SIZE:0] diff_sum; // the difference between the product and z mantissas
-    logic [5:0] a_cnt_pos; // the positive value of a_cnt
+    logic [6:0] a_cnt_pos; // the positive value of a_cnt
     
     /**
     *  Uses previous calculations in order to determine the m_shift value
@@ -67,7 +67,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
 
 
             // if a_cnt is too big, then we can see am - pe to diff_sum sm, before computing its actual location. If a_cnt is big enough, we don't need to worry about the "middle zone"
-            if (a_cnt[5] & (a_cnt != -6'd2) & (a_cnt != -6'd1)) begin // a_cnt = -3 to all other negatives
+            if (a_cnt[6] & (a_cnt != -6'd2) & (a_cnt != -6'd1)) begin // a_cnt = -3 to all other negatives
 
                 // m_shift lies somewhere around the first three bits in front of or the bit behind the a_cnt shift
                 if      (diff_sum[END_BITS + 20 + a_cnt_pos + 1'b1])       m_shift = { {2{1'b1}}, a_cnt - 1'b1 };
@@ -82,7 +82,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
             end else begin  
                 
                 // a_cnt is -2 or above, we need to look through every bit in the sum's mantissa (which is 
-                //          24 bits total, including the ENDING_BITS)
+                //          24 bits total, including the ENDING_BITS) **priority encoder
                 if      (diff_sum[END_BITS + 22])                  m_shift = -2;
                 else if (diff_sum[END_BITS + 21])                  m_shift = -1;
                 else if (diff_sum[END_BITS + 20])                  m_shift =  0;
@@ -128,15 +128,16 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
 
             // if a_cnt is negative, then the only locations that the leading one can be is one of two bits of/in front of a_cnt
             //     or one bit behind it.
-            if (a_cnt[5]) begin
+            if (a_cnt[6]) begin // should be a_cnt > 16
 
                 // in the case that pm and am are identical, m_shift doesn't need to change
                 if (sm==0)                                     m_shift = 0;
 
                 // check the three bits about the top of am
-                else if (sm[END_BITS + 20 + a_cnt_pos + 1])    m_shift = (a_cnt == 6'b100000) ?  8'b1111_1111 : { {2{1'b1}}, (a_cnt - 1'b1) };
+                else if (sm[END_BITS + 20 + a_cnt_pos + 1])    m_shift = (a_cnt == 7'b1000000) ?  8'b1111_1111 : { {2{1'b1}}, (a_cnt - 1'b1) };
                 else if (sm[END_BITS + 20 + a_cnt_pos])        m_shift = { 2'b11, a_cnt };
                 else if (sm[END_BITS + 20 + a_cnt_pos - 1])    m_shift = (a_cnt == -6'd1) ? 0 : {  {2{1'b1}}, (a_cnt + 1'b1) };
+                
             end 
         
             // if a_cnt is positive, the leading one has to be within the first two bits of the product or the bit after the first bit
