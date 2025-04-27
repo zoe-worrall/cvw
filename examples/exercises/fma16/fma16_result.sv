@@ -14,6 +14,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic [1:0]        which_nx,  // used to determine if subnormal
     input  logic              subtract_1, // used to adjust if we have to subtract a small number from a bigger one
     input  logic              z_visible,
+    input  logic              prod_visible,
     
     input  logic              zs, // sign of z
     input  logic [4:0]        ze, // exponent of z
@@ -23,7 +24,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic [1:0]        roundmode, // the rounding mode of the system
 
     output logic [4:0]        me, // the exponent of the result
-    output logic              nx_bits,
+    output logic              nx,
     output logic [15:0]       mult // the final result of the fma16 calculation
     );
 
@@ -41,6 +42,8 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
     // To help with faster calculations later, find the 2's complement of m_shift
     assign pos_m_shift = ~m_shift + 1'b1;
+
+    logic fix_z_vis;
 
     // Calculates what could potentially be the mantissa of the multiplicand:
     //
@@ -68,12 +71,14 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
         begin
             me = 0;
             mm = '0;
+            fix_z_vis = 0;
         end
 
         else if (pe == -6'd13)
         begin
             me = (ze!=5'd1) ? ze - (~|zm & subtract_1) : ze; //((subtract_1 | ms) & ~|zm); // ze - ((subtract_1 | ms) & ~|zm);  // fin_mm[(END_BITS+19):(END_BITS+10)]
             mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+            fix_z_vis = (ze==-5'd2) ? 1'b0 : 1'b1;
         end
 
         else if (subtract_1) begin
@@ -82,6 +87,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                 begin
                     me = sum_pe - (~|sm[END_BITS+19:END_BITS]); // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
                     mm = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                    fix_z_vis = 0;
                     // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)] - 1'b1;
                 end
 
@@ -89,6 +95,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                 begin
                     me = ze - 1'b1;
                     mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                    fix_z_vis = 1;
                     // mm_part = zm;
                 end
 
@@ -96,6 +103,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                 begin
                     me = sum_pe;
                     mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                    fix_z_vis = 0;
                     // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
                 end
         end
@@ -104,6 +112,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
         begin
             me = sum_pe[4:0];
             mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+            fix_z_vis = 0;
             // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
         end
 
@@ -111,6 +120,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
         begin
             me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
             mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+            fix_z_vis = 0;
             // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)];
         end
     end
@@ -125,6 +135,10 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     ///////////////////////////////////////////////////////////////////////////////
     // Calculates Rounding
     ///////////////////////////////////////////////////////////////////////////////
+
+    logic nx_bits;
+
+    assign nx = nx_bits | prod_visible | (z_visible ^ fix_z_vis);
 
     // Calculates how to round the result
     // fma16_round #(VEC_SIZE, END_BITS) rounder(.ms, .mm, .roundmode, .subtract_1, .fin_mm);
