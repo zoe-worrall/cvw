@@ -25,12 +25,14 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
     output logic [7:0]   m_shift, // additional adjustment for adjusting decimal
 
+    output logic product_greater,
+
     output logic [5:0]  diff_count, // the difference between ze and pe exponents
     output logic [1:0]  which_nx,   // used to determine if subnormal
     output logic        subtract_1, z_visible, prod_visible, ms // used to adjust if z or product is subnormal and negative
     );
 
-    logic product_greater;
+    // logic product_greater;
 
     logic [VEC_SIZE:0] am; // aligned zm for sum
     logic [VEC_SIZE:0] pm; // aligned pm for sum
@@ -85,6 +87,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
         // if z is greater, that means we'll be subtracting from z
         else if ((pm!='0)  & (~z_zero))  which_nx = 1;
+
         else                             which_nx = 3;
     end
 

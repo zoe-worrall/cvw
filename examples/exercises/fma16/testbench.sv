@@ -32,7 +32,7 @@ module testbench_fma16;
   // 3. harris_comp_fma_1_v_2
   initial
     begin
-      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\harris_fma_2.tv", testvectors);
+      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\fadd_mul_2.tv", testvectors);
       vectornum = 0; errors = 0;
       reset = 1; #22; reset = 0;
     end

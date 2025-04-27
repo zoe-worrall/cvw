@@ -20,7 +20,7 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
 
     // Internal Logic: The Least Significant, Guarding, Rounding, and Truncation bits
     logic LSb, G, R, T, round_val;
-    logic [9:0] trunc, round;
+    logic [9:0] round,  trunc;
 
     // Assigns the LSb, G, R, and T values based on the mantissa (mm)
     assign LSb = mm[END_BITS+10]; // LSB of the output's mantissa
