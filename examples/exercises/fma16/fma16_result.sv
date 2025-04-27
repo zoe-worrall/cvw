@@ -23,7 +23,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic [1:0]        roundmode, // the rounding mode of the system
 
     output logic [4:0]        me, // the exponent of the result
-    // output logic [VEC_SIZE:0]        fin_mm, // the final result (takes rounding into account)
+    output logic              nx_bits,
     output logic [15:0]       mult // the final result of the fma16 calculation
     );
 
@@ -42,14 +42,6 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     // To help with faster calculations later, find the 2's complement of m_shift
     assign pos_m_shift = ~m_shift + 1'b1;
 
-    logic bringz_on;
-    assign bringz_on = (({1'b0, pe} < {2'b00, ze}) & ((pe-ze)>23) & (ze!=1));
-
-    // Calculates the mantissa and the 16-bit representation of the result if there is no rounding
-    // subnorm is controlled by how big diff is between the two numbers
-    // assign      mm = (({1'b0, pe} < {2'b00, ze}) & ((pe-ze)>23)) ? (zm << END_BITS+11) : (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift) ;
-
-
     // Calculates what could potentially be the mantissa of the multiplicand:
     //
     //      *  currently in the process of reworking this section; this was initially the if statement
@@ -62,9 +54,6 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     assign      sum_pe = { {2{pe[5]}}, pe} + pos_m_shift; // adding the additional conversions based off of however big of a shift we have
     assign      dif_pe = { {2{pe[5]}}, pe} - m_shift;
 
-
-    logic flag;
-    assign flag = ((pe == -6'd13) & ((subtract_1 | ms) & ~|zm));
     ///////////////////////////////////////////////////////////////////////////////
     // Calculates Result Components
     ///////////////////////////////////////////////////////////////////////////////
@@ -87,20 +76,16 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
             mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
         end
 
-        else if ( m_shift==8'b0 ) 
-        begin
-
-            if (subtract_1) // something subnormal happened somewhere
-            begin
-                // if which_nx is 0, the product is much greater than the z, meaning subnormal things ensue
+        else if (subtract_1) begin
+             // if which_nx is 0, the product is much greater than the z, meaning subnormal things ensue
                 if (which_nx == 0) 
                 begin
-                    me = (ze!=5'd1) ? sum_pe - (~|sm[END_BITS+19:END_BITS] & subtract_1) : sum_pe; // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
+                    me = sum_pe - (~|sm[END_BITS+19:END_BITS]); // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
                     mm = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
                     // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)] - 1'b1;
                 end
 
-                else if (which_nx == 1)
+                else if (which_nx == 1) // this means that product was smaller than z
                 begin
                     me = ze - 1'b1;
                     mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
@@ -113,15 +98,6 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                     mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
                     // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
                 end
-            end
-
-            else // we didn't subtract shit, so we need to check that 
-            begin
-                me = sum_pe;
-                mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);// { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)];
-            end
-
         end
 
         else if (m_shift[7])
@@ -146,7 +122,6 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     assign      mult = {ms, me, mm_rounded}; // (subtract_1) ? (which_nx==0) ? {ms, me-(~m_shift&~|(sm[19+END_BITS:0])), mm_part-1'b1} : (which_nx==1) ? {ms, ze-1'b1, zm-1'b1} : {ms, me, mm_part} : {ms, me, mm_part};
 
 
-
     ///////////////////////////////////////////////////////////////////////////////
     // Calculates Rounding
     ///////////////////////////////////////////////////////////////////////////////
@@ -154,30 +129,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     // Calculates how to round the result
     // fma16_round #(VEC_SIZE, END_BITS) rounder(.ms, .mm, .roundmode, .subtract_1, .fin_mm);
 
-    fma16_round #(VEC_SIZE, END_BITS) rounder(.ms, .mm, .roundmode, .subtract_1, .mm_rounded);
+    fma16_round #(VEC_SIZE, END_BITS) rounder(.ms, .mm, .roundmode, .subtract_1, .mm_rounded, .nx_bits);
 
 endmodule
 
-
-            // if (ze==5'b11110) -- originally -13
-            //     if (~|zm) begin
-            //         if (subtract_1^ms)
-            //                 if (ms) mm_part = zm-1'b1;
-            //                 else    mm_part = zm-1'b1;
-            //         else         mm_part = zm-(subtract_1);
-            //     end
-            //     else begin
-            //         if (subtract_1 | ms)   mm_part = zm-(ms^subtract_1);
-            //         else                   mm_part = zm-(subtract_1);
-            //     end
-            // else
-            //     if (~|zm) begin
-            //         if (subtract_1^ms)
-            //                 if (ms) mm_part = zm-1'b1;
-            //                 else    mm_part = zm-1'b1;
-            //         else         mm_part = zm-(subtract_1);
-            //     end
-            //     else begin
-            //         if (subtract_1 | ms)   mm_part = zm-(ms^subtract_1);
-                    // else                   mm_part = zm-(subtract_1);
-                // end

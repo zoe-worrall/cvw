@@ -51,7 +51,7 @@ module testbench_fma16;
     if (~reset) begin // skip during reset
       // $display("Test #%h", vectornum);
       eval = ((result != rexpected) & no_prod);
-      if (result != rexpected) begin // | flags !== flagsexpected) begin
+      if (result != rexpected | flags !== flagsexpected) begin
         $display("Error: inputs %h * %h + %h", x, y, z);
         $display("  result = %h (%h expected) flags = %b (%b expected)", result, rexpected, flags, flagsexpected);
         error = 1;

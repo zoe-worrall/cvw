@@ -41,7 +41,12 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     logic [6:0] pot_acnt;
     assign pot_acnt = pe-{1'b0,ze}; //($signed(pe - ze) > 7'd0) ? (pe - ze) : (ze - pe);
 
-    assign z_visible = am[END_BITS+19:0]!=0; 
+    //                     if negative, make sure its greater than 11
+    assign z_visible = (diff_pe_ze[5]) ? ((~diff_pe_ze + 1'b1) > 6'd11) : (diff_pe_ze > 6'd11); 
+
+    logic smth_shifted_out;
+    // this happens if m_shift is 
+    assign smth_shifted_out = (|sm[END_BITS+m_shift:0])
 
     logic extra;
 
@@ -66,8 +71,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         //     - As opposed to a_cnt, diff_count is a signed value that
         //         tells the exact difference between pe and ze
         //
-        if (({1'b0,pe}>{2'b00,ze}))  {extra, diff_count} = ({1'b0,pe} - {2'b00,ze});
-        else                         {extra, diff_count} = ({2'b00,ze} - {1'b0,pe});
+        {extra, diff_count} = ({1'b0,pe} - {2'b00,ze});
 
         // Assigning which_nx (which inexact)
         //    This is used to determine what should be done if either z or the
@@ -78,38 +82,14 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         //       made in post
         //
         //     If z is the smaller of the two, which_nx is 0
-        if      ((pe > ze) & (~z_zero))  which_nx = 0;
+        //     If p is the smaller of the two, which_nx is 1
+        
+        // if pe isn't negative, is bigger than z, if pe is greater than 15, and z isn't 0, which_nx is 0
+        if      (!pe[5] & (pe[4:0] >= ze) & (({2'b00,xe} + {2'b00,ye}) > 5'b01111) & (~z_zero))  which_nx = 0;
+
+        // if z is greater, that means we'll be subtracting from z
         else if ((pm!='0)  & (~z_zero))  which_nx = 1;
         else                             which_nx = 3;
-        
-        // Assigning subtract_1
-        //    This is used to determine if 1'b1 should be subtracted from sm
-        //
-        if (ps ^ zs)
-        begin
-            // between -24 and 24, don't subtract anything
-            if ((($signed(diff_pe_ze) > -7'd24) & ($signed(diff_pe_ze) < 7'd24))) 
-                subtract_1 = 0;
-
-            // subtract 1 if: 
-                // z is small enough and the product is big (i.e. am is 0, and z is not zero or exponent of 1 (smallest))
-                // product is small enough (but not zero) and z is big enough
-            else
-                if (  (am[VEC_SIZE:END_BITS]=='0) & (~(z_zero)) ) begin
-                    if (pe==-6'd13)
-                        subtract_1 = (ze==5'd1) ? |zm : 1'b1;
-                    else
-                        subtract_1 = 1'b1;
-
-                end else if (pm=='0 & (~(x_zero|y_zero))) begin
-                    subtract_1 = 1'b1;
-
-                end else begin
-                    subtract_1 = 1'b0;
-                end
-
-        end
-        else    begin  subtract_1 = 0; end
     end
 
     // Assigning no_product (used to determine if product is zero/subnormal)
@@ -117,8 +97,10 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     //
     assign no_product =  (diff_pe_ze < -7'd23) | (diff_pe_ze > 7'd23); //((~x_zero) & (xe==0)) | ((~y_zero) & (ye==0)) | (pot_acnt[6]&(~(ze==0)));
 
+
     // a_cnt_pos is only positive if product is greater than ze  ~pot_acnt[6] & |pot_acnt[5:4
     assign ms = (pot_acnt==0) ? ((pm>am) ? ps : zs) : (pe==-6'd13) ? zs : (z_visible) ? (pm>am) ? ps : zs : (~pot_acnt[6]) ? ps : (pm>am) ? ps : zs;  // calculating final sign of result
+
 
     ///////////////////////////////////////////////////////////////////////////////
     // Addition
@@ -130,8 +112,15 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     assign am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
     assign pm = (x_zero | y_zero) ? 0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
 
-    // Calculates the proper shifting (m_shift) and the sum of pm and am
-    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.pm, .am, .z_zero, .a_cnt(pot_acnt), .no_product, .diff_sign(~z_zero & (zs ^ ps)), .m_shift, .sm);
+    // determine if we're going to need to subtract 1
+    fma16_sub_one #(VEC_SIZE, END_BITS) sub_one(.ps, .zs, .pe, .ze, .diff_pe_ze, .zm, .x_zero, .y_zero, .z_zero, .am, .sm, .pm, .subtract_1);
+        
+    // sum am and pm together into sm
+    fma16_sum #(VEC_SIZE, END_BITS) sum(.pm, .am, .a_cnt(pot_acnt), .diff_sign(~z_zero & (zs ^ ps)), .no_product, .z_zero, .sm); // Calculates the sum of the product and z mantissas
+
+    // determine how much to shift the mantissa in order to get the leading 1
+    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .a_cnt(pot_acnt), .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
+
 
 
 endmodule

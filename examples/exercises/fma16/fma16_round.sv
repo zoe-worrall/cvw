@@ -14,7 +14,8 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic [1:0] roundmode,  // the rounding mode
     input  logic       subtract_1, // whether to subtract 1 from the mantissa
 
-    output  logic [9:0] mm_rounded  // the rounded mantissa
+    output  logic [9:0] mm_rounded,  // the rounded mantissa
+    output  logic       nx_bits // nx is true if the mantissa is not exact
     );
 
     // Internal Logic: The Least Significant, Guarding, Rounding, and Truncation bits
@@ -28,8 +29,7 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
     assign T =  |mm[END_BITS+7:0]; // The truncation bits (all bits to the right of the rounding bit)
 
     logic up_the_octave_go_for_it;
-    // assign round_val = LSb; // G&(R | T); // if G > 1 (0.5) and R|T > 1 (> 0.5), then trunc should be 1. otherwise, 0
-
+    
     // Calculate both the truncation and rounding values before assigning them ** mm is truncated already
     assign trunc = mm[19+END_BITS:10+END_BITS] ; // the adjusted sum of the product and z mantissas
     assign {up_the_octave_go_for_it, round} = trunc + 1'b1;
@@ -71,5 +71,6 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
     end
 
     assign mm_rounded = (round_val) ? round-subtract_1 :  trunc-subtract_1;
+    assign nx_bits = R | G | T; // nx is true if the mantissa is not exact
 
 endmodule

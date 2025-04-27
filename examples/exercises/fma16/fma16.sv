@@ -88,7 +88,6 @@ module fma16(
     //        100 - mul
     //        110 - add
     //        111 - sub
-    logic [2:0]   op_ctrl = { mul|add, negp, negz };
     
 
 
@@ -103,7 +102,7 @@ module fma16(
     ///////////////////////////////////////////////////////////////////////////////
 
     fma16_classification classifier(.x, .y, .z,           // x, y, and z for fma16
-                                        .op_ctrl,             // operation control bits
+                                        .mul, .add, .negp, .negz,             // operation control bits
                                         .xs, .ys, .zs,        // the signs of x, y, z
                                         .xe, .ye, .ze,        // the exponents of x, y, z
                                         .xm, .ym, .zm,        // the mantissa of x, y, z
@@ -153,17 +152,7 @@ module fma16(
     //      - Rounds the result based on the rounding mode of the system
     ///////////////////////////////////////////////////////////////////////////////
 
-    fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
-                                                     .ms, .m_shift, // the sum of the mantissa and the shift amount
-                                                     .which_nx, .subtract_1, .z_visible,   // which nx to use, 
-                                                     .roundmode,     // the rounding mode of the system
-                                                     .zs, .ze, .pe, .zm,  // the exponent and mantissa of z
-                                                     
-                                                     // outputs (final result without taking errors into account)
-                                                     .me, // .fin_mm(mm),
-                                                      .mult // the exponent and mantissa of the result
-    );
-
+    
     ///////////////////////////////////////////////////////////////////////////////
     // Calculates the Flags
     //      - Overflow is assigned when the exponent & mantissa is too large
@@ -177,17 +166,34 @@ module fma16(
     logic raise_flag;
     logic nv, of, uf, nx; // invalid, overflow, underflow, inexact
 
+    logic nx_bits; // the bits coming out of the rounding logic
+
+    fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
+                                                     .ms, .m_shift, // the sum of the mantissa and the shift amount
+                                                     .which_nx, .subtract_1, .z_visible,   // which nx to use, 
+                                                     .roundmode,     // the rounding mode of the system
+                                                     .zs, .ze, .pe, .zm,  // the exponent and mantissa of z
+                                                     
+                                                     // outputs (final result without taking errors into account)
+                                                     .me, // .fin_mm(mm),
+                                                    .nx_bits,
+                                                    .mult // the exponent and mantissa of the result
+    );
+
+
     // Flag Logic (based on Rounding)
     // Overflow
     assign of = 1'b0; // me[5] ? 1'b1 : 1'b0;
 
     // inexact if the result is not exact to the actual value
-    assign nx = 1'b1; //(mm == 0) ? 1'b0 : ((mm - { {(WIDTH-1-10-10-ENDING_ZEROS){1'b0}}, 1'b1, mult[9:0], (10+ENDING_ZEROS)'(1'b0) }) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this 
+    // assign nx = 1'b1; //(mm == 0) ? 1'b0 : ((mm - { {(WIDTH-1-10-10-ENDING_ZEROS){1'b0}}, 1'b1, mult[9:0], (10+ENDING_ZEROS)'(1'b0) }) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this 
     
     // Invalid if any input is NaN
     assign nv = ((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
 
     assign uf = 0;
+
+    assign nx = nx_bits | z_visible;
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

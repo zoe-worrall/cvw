@@ -8,7 +8,7 @@
 
 module fma16_classification(
     input  logic [15:0] x, y, z,  // the multiplicand, multiplier, and addend of this fma16 instruction
-    input  logic [2:0]  op_ctrl,  // bits indicating mul, add, negp, and negz signals to the board
+    input  logic        mul, add, negp, negz,  // bits indicating mul, add, negp, and negz signals to the board
 
     output logic        xs, ys, zs, // the signs of x, y, and z
     output logic [4:0]  xe, ye, ze, // the exponents of x, y, and z
@@ -24,26 +24,25 @@ module fma16_classification(
     parameter nan_val = 16'b0_111_11_1000000000;
     parameter neg_zero = 16'b1_00000_0000000000;
 
-
     // Assigning Base Constants for Zeros, Infinities, and NaNs
     // Zeros
     assign x_zero = ((x==0) | (x==neg_zero));
-    assign y_zero = ((y==0) | (y==neg_zero));
-    assign z_zero = ((z==0) | (z==neg_zero));
+    assign y_zero = ((y==0) | (y==neg_zero)) & mul;
+    assign z_zero = ((z==0) | (z==neg_zero)) | ~add;
 
     // Infinities
     assign x_inf = (x==16'b0_11111_0000000000);
-    assign y_inf = (y==16'b0_11111_0000000000);
-    assign z_inf = (z==16'b0_11111_0000000000);
+    assign y_inf = (y==16'b0_11111_0000000000) & mul;
+    assign z_inf = (z==16'b0_11111_0000000000) & ~add;
 
     // NaNs
     assign x_nan  = ((x[15:10]==6'b011_111) & (x[9:0]!=0));
-    assign y_nan = ((y[15:10]==6'b011_111) & (y[9:0]!=0));
-    assign z_nan = ((z[15:10]==6'b011_111) & (z[9:0]!=0));
+    assign y_nan = ((y[15:10]==6'b011_111) & (y[9:0]!=0)) & mul;
+    assign z_nan = ((z[15:10]==6'b011_111) & (z[9:0]!=0)) & ~add;
 
     // Assigning Signs, Exponents, and Mantissas for x, y, and z
     assign {xs, xe, xm} = x;
-    assign {ys, ye, ym} = y;
-    assign {zs, ze, zm} = z;
+    assign {ys, ye, ym} = (mul) ? y : 16'h3c00;
+    assign {zs, ze, zm} = (add) ? z : 16'h0000;
 
 endmodule

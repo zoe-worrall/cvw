@@ -20,7 +20,7 @@ module fma16_pcalc(
     );
 
     assign ps = xs ^ ys; // product sign
-    assign pe = (x_zero | y_zero) ? '0 : (xe + ye - 5'b01111); // product exponent
+    assign pe = (x_zero | y_zero) ? '0 : ({2'b00, xe} + {2'b00, ye} - 6'b001111); // product exponent
     assign mid_pm = {(xe!=0), xm} * {(ye!=0), ym}; // product of mantissa
 
 endmodule
