@@ -50,6 +50,8 @@ module fma16(
     logic [4:0] me; // the exponent of the final result
     logic [WIDTH:0] mm; // the mantissa of the final result
 
+    logic big_z;
+
 
 
 
@@ -141,6 +143,8 @@ module fma16(
 
                                                         .which_nx, .diff_count, .subtract_1, .ms,
                                                         .z_visible, .prod_visible,
+
+                                                        .big_z,
                                                         
                                                         .sm // which nx to use and the difference between the exponents
     );
@@ -173,6 +177,8 @@ module fma16(
                                                      .z_visible, .prod_visible,  // used for inexact
                                                      .roundmode,     // the rounding mode of the system
                                                      .zs, .ze, .pe, .zm,  // the exponent and mantissa of z
+
+                                                     .big_z,
                                                      
                                                      // outputs (final result without taking errors into account)
                                                     .me, // .fin_mm(mm),

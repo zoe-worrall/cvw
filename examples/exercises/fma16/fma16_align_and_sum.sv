@@ -25,6 +25,8 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
     output logic [7:0]   m_shift, // additional adjustment for adjusting decimal
 
+    output logic        big_z,  // whether z dwarfs product or not (i.e. if z is way bigger than the product)
+
     output logic [5:0]  diff_count, // the difference between ze and pe exponents
     output logic [1:0]  which_nx,   // used to determine if subnormal
     output logic        subtract_1, z_visible, prod_visible, ms // used to adjust if z or product is subnormal and negative
@@ -114,11 +116,15 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     // Addition
     ///////////////////////////////////////////////////////////////////////////////
     
+
+    // logic big_z;
+    assign big_z = (~pot_acnt[6] & pe[5]); // if z is actually bigger than p, but not caught by the acnt
+
     logic [VEC_SIZE-1:0] zm_bf_shift;
     assign zm_bf_shift = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
 
-    assign am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
-    assign pm = (x_zero | y_zero) ? 0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
+    assign am = (big_z) ? zm_bf_shift : (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
+    assign pm = (x_zero | y_zero | (big_z&~z_zero)) ? 0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
 
     //~pot_acnt[6]|(pe==-6'd13
     assign product_greater = (pm==am)?1:(am>pm)?0:(am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1;   //(am!='0)?1:(pe>{1'b0, ze})?(~pe[5])?0:((pe==-6'd13)?0:1):0);

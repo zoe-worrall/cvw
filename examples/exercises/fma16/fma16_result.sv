@@ -15,6 +15,8 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic              subtract_1, // used to adjust if we have to subtract a small number from a bigger one
     input  logic              z_visible,
     input  logic              prod_visible,
+
+    input  logic              big_z, // if z is so big that it dwarfs the product
     
     input  logic              zs, // sign of z
     input  logic [4:0]        ze, // exponent of z
@@ -101,9 +103,16 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
                 else
                 begin
-                    me = sum_pe;
-                    mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-                    fix_z_vis = 0;
+                    if (big_z) begin
+                        me = ze; // - 1'b1;
+                        mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                        fix_z_vis = 1;
+                    end
+                    else begin
+                        me = sum_pe;
+                        mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                        fix_z_vis = 0;
+                    end
                     // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
                 end
         end
@@ -118,9 +127,16 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
         else
         begin
-            me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
-            mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-            fix_z_vis = 0;
+            if (big_z) begin
+                        me = ze;
+                        mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                        fix_z_vis = 1;
+            end
+            else begin
+                me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
+                mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                fix_z_vis = 0;
+            end
             // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)];
         end
     end
