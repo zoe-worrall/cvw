@@ -6,7 +6,7 @@ module testbench_fma16;
   logic        mul, add, negp, negz;
   logic [1:0]  roundmode;
   logic [31:0] vectornum, errors;
-  logic [75:0] testvectors[1000000:0];
+  logic [75:0] testvectors[100000:0];
   logic [3:0]  flags, flagsexpected; // Invalid, Overflow, Underflow, Inexact
   
 
@@ -32,7 +32,7 @@ module testbench_fma16;
   // 3. harris_comp_fma_1_v_2
   initial
     begin
-      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\alltogether.tv", testvectors);
+      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\fadd_mul_2.tv", testvectors);
       vectornum = 0; errors = 0;
       reset = 1; #22; reset = 0;
     end

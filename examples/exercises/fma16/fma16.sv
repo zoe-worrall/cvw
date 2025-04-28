@@ -50,8 +50,6 @@ module fma16(
     logic [4:0] me; // the exponent of the final result
     logic [WIDTH:0] mm; // the mantissa of the final result
 
-    logic big_z;
-
 
 
 
@@ -120,7 +118,7 @@ module fma16(
 
     fma16_pcalc calculate_prod( .xs, .ys, .xe, .ye, .xm, .ym,  // input: x and y sign, exponent, and mantissa
                                 .x_zero, .y_zero,  // input: x and y are zero
-
+                                
                                 // outputs (products)
                                 .ps, .pe, .mid_pm  // product sign, exponent, and mantissa
     );
@@ -143,7 +141,7 @@ module fma16(
                                                         .which_nx, .diff_count, .subtract_1, .ms,
                                                         .z_visible, .prod_visible,
 
-                                                        .product_greater, .big_z,
+                                                        .product_greater,
                                                         
                                                         .sm // which nx to use and the difference between the exponents
     );
@@ -174,11 +172,12 @@ module fma16(
                                                      .ms, .m_shift, // the sum of the mantissa and the shift amount
                                                      .which_nx, .subtract_1,  // which nx to use, which subtract
                                                      .z_visible, .prod_visible,  // used for inexact
+
+                                                     .product_greater,
+
                                                      .roundmode,     // the rounding mode of the system
                                                      .zs, .ze, .pe, .zm,  // the exponent and mantissa of z
                                                      
-                                                     
-                                                    .product_greater, .big_z,
                                                      // outputs (final result without taking errors into account)
                                                     .me, // .fin_mm(mm),
                                                     .nx,
