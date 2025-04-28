@@ -7,7 +7,6 @@
     E154 System on Chip
     April 22, 2025
 */
-
 module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic         ps, zs, xs, ys, // signs of product and z
 
@@ -107,7 +106,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     logic [5:0] pos_pe;
 
     assign pos_pe = ~pe + 1'b1;
-    assign big_z = (~pot_acnt[6] & pot_acnt>=30) ? (pe[5] & ~ze[4] & (pos_pe>={1'b0, ze})) ? 1'b1 : 1'b1 : 1'b0;
+    assign big_z = (~pot_acnt[6] & pot_acnt>=30) ? (pe[5] & ~ze[4] & (pos_pe>={1'b0, ze})) ? 1'b0 : 1'b1 : 1'b0;
     assign zm_bf_shift = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
 
     logic [VEC_SIZE:0] testy_am;
@@ -210,7 +209,5 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
     // determine how much to shift the mantissa in order to get the leading 1
     fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .a_cnt(pot_acnt), .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
-
-
 
 endmodule

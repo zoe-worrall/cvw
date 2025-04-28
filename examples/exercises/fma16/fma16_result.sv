@@ -65,7 +65,6 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
     logic [10:0] check_z;
     assign check_z = {{|ze, zm}-1'b1};
-
     
 
     // Calculating the exponent and full value of the result; the output of the round mode is used to determine flags
