@@ -94,7 +94,6 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                 begin
                     me = ze - 1'b1;
                     mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                    fix_z_vis = 1;
                     // mm_part = zm;
                 end
 
@@ -117,7 +116,6 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
         begin
             me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
             mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-            fix_z_vis = 0;
             // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)];
         end
     end
