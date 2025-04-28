@@ -27,7 +27,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     output logic        subtract_1, z_visible, ms // used to adjust if z or product is subnormal and negative
     );
 
-    // logic product_greater;
+    logic product_greater;
 
 >>>>>>> parent of 25c17ec31 (added product fix for me - looks to see how much trunc changes when subtracted by 1)
     logic [VEC_SIZE:0] am; // aligned zm for sum

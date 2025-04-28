@@ -15,7 +15,6 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic              subtract_1, // used to adjust if we have to subtract a small number from a bigger one
     input  logic              z_visible,
     input  logic              prod_visible,
-    input logic product_greater,
     
     input  logic              zs, // sign of z
     input  logic [4:0]        ze, // exponent of z
@@ -89,18 +88,9 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
                 else if (which_nx == 1) // this means that product was smaller than z
                 begin
-                    if (~product_greater) begin
-
-                        me = ze - ({trunc-1'b1}[9] != trunc[9]);
-                        mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                        fix_z_vis = 1;
-                    end
-                    else begin
-                        me = sum_pe - (~|sm[END_BITS+19:END_BITS]); // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
-                        mm = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-                        fix_z_vis = 0;
-                    end
-
+                    me = ze - 1'b1;
+                    mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                    fix_z_vis = 1;
                     // mm_part = zm;
                 end
 
@@ -121,30 +111,9 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
         else
         begin
-
-            if (which_nx==1) // this means that product was smaller than z
-                begin
-                    if (~product_greater) begin
-                        me = ze;
-                        mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                        fix_z_vis = 1;
-                    end
-                    else begin
-                        me = sum_pe; // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
-                        mm = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-                        fix_z_vis = 0;
-                    end
-                end else
-                begin
-                    me = sum_pe;
-                    mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-                    fix_z_vis = 0;
-                    // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
-                end
-            // me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
-            // mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-            // fix_z_vis = 0;
-        
+            me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
+            mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+            fix_z_vis = 0;
             // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)];
         end
     end
