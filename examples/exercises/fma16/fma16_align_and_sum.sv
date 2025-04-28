@@ -18,8 +18,6 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic [21:0]  mid_pm,     // product mantissa
 
     input  logic         x_zero, y_zero, z_zero, // Zero Flags
-
-    output logic [5:0]   a_cnt,       // exponent difference between pe and ze
     
     output logic [VEC_SIZE:0] sm, // the sum of the product and z mantissas
 
@@ -52,16 +50,6 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     ///////////////////////////////////////////////////////////////////////////////
     
     always_comb begin
-        // Assigning a_cnt (relative difference between pe and ze)
-        // 
-        //     - if pe is smaller than ze and both are negative, then a_cnt needs to 
-        //          subtract 32 from its answer due to a wrapping error
-        //     - otherwise, a_cnt is just the difference between pe and ze
-        //   1_11110
-        if ((pe==-6'd13) & (ze < -5'd1) & ($signed(diff_pe_ze)>$signed(20)))
-            if (diff_pe_ze == 6'b110000)  a_cnt = diff_pe_ze;
-            else                          a_cnt = diff_pe_ze; //{ ~diff_pe_ze[5], diff_pe_ze[4:0] };
-        else                              a_cnt = diff_pe_ze;
 
         // Assigning diff_count (overall difference between pe and ze)
         //
@@ -116,14 +104,21 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     ///////////////////////////////////////////////////////////////////////////////
     
     logic [VEC_SIZE-1:0] zm_bf_shift;
+    logic [5:0] pos_pe;
+
+    assign pos_pe = ~pe + 1'b1;
+    assign big_z = (~pot_acnt[6] & pot_acnt>=30) ? (pe[5] & ~ze[4] & (pos_pe>={1'b0, ze})) ? 1'b1 : 1'b1 : 1'b0;
     assign zm_bf_shift = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
 
-    assign am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
+    logic [VEC_SIZE:0] testy_am;
+    assign testy_am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
     assign pm = (x_zero | y_zero) ? 0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
-
-    //~pot_acnt[6]|(pe==-6'd13
-    assign product_greater = (pm==am)?1:(am>pm)?0:(am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1;   //(am!='0)?1:(pe>{1'b0, ze})?(~pe[5])?0:((pe==-6'd13)?0:1):0);
     
+    assign product_greater = (pm==testy_am)?1:(testy_am>pm)?0:(testy_am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1;   //(am!='0)?1:(pe>{1'b0, ze})?(~pe[5])?0:((pe==-6'd13)?0:1):0);
+
+    /// just added product_greater logi
+    assign am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : (pot_acnt>35 & ~product_greater) ? zm << ( ~diff_pe_ze) : zm_bf_shift >> pot_acnt;
+
     logic pot_ms;
     assign ms = (product_greater) ? ps : zs;
 
@@ -165,11 +160,6 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         // else if (pot_acnt==30) z_visible = |{zm_bf_shift[END_BITS+28:0]};
         else  z_visible = 1'b0; //  z_visible = ((ze!=0) | |zm);
     end
-
-    logic [5:0] pos_pe;
-    assign pos_pe = ~pe + 1'b1;
-
-    assign big_z = (~pot_acnt[6] & pot_acnt>=30) ? (pe[5] & ~ze[4] & (pos_pe>={1'b0, ze})) ? 1'b0 : 1'b1 : 1'b0;
 
 
     logic [7:0] pos_m_shift;

@@ -19,7 +19,7 @@ module fma16_classification(
     output logic        x_nan, y_nan, z_nan     // whether x, y, z are NaN
     );
 
-    // parameters defined to check for zero, infinity, and NaNa
+    // parameters defined to check for zero, infinity, and NaN
     parameter inf_val = 16'b0_11111_0000000000;
     parameter nan_val = 16'b0_111_11_1000000000;
     parameter neg_zero = 16'b1_00000_0000000000;

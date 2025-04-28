@@ -138,7 +138,6 @@ module fma16(
                                                         .zm, .mid_pm,      // product mantissa, product mantissa
                                                         .x_zero, .y_zero, .z_zero, // whether x, y, z are zero
 
-                                                        .a_cnt,   // exponent difference
                                                         .m_shift, // shift amount for leading 1's
 
                                                         .which_nx, .diff_count, .subtract_1, .ms,
