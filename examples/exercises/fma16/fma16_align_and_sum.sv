@@ -132,17 +132,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     // assign z_visible = (diff_pe_ze[5]) ? ((~diff_pe_ze + 1'b1) > 6'd11) : (diff_pe_ze > 6'd11); 
     always_comb begin
         if      (pot_acnt[6])  z_visible = 1'b0;
-        else if (pot_acnt==1)  z_visible = |{zm_bf_shift[END_BITS:0]};
-        else if (pot_acnt==2)  z_visible = |{zm_bf_shift[END_BITS+1:0]};
-        else if (pot_acnt==3)  z_visible = |{zm_bf_shift[END_BITS+2:0]};
-        else if (pot_acnt==4)  z_visible = |{zm_bf_shift[END_BITS+3:0]};
-        else if (pot_acnt==5)  z_visible = |{zm_bf_shift[END_BITS+4:0]};
-        else if (pot_acnt==6)  z_visible = |{zm_bf_shift[END_BITS+5:0]};
-        else if (pot_acnt==7)  z_visible = |{zm_bf_shift[END_BITS+6:0]};
-        else if (pot_acnt==8)  z_visible = |{zm_bf_shift[END_BITS+7:0]};
-        else if (pot_acnt==9)  z_visible = |{zm_bf_shift[END_BITS+8:0]};
-        else if (pot_acnt==10) z_visible = |{zm_bf_shift[END_BITS+9:0]};
-        else if (pot_acnt==11) z_visible = |{zm_bf_shift[END_BITS+10:0]};
+        else if (pot_acnt==11) z_visible = |{zm_bf_shift[END_BITS+10:0]}; // all bits before this have to be 0
         else if (pot_acnt==12) z_visible = |{zm_bf_shift[END_BITS+11:0]};
         else if (pot_acnt==13) z_visible = |{zm_bf_shift[END_BITS+12:0]};
         else if (pot_acnt==14) z_visible = |{zm_bf_shift[END_BITS+13:0]};

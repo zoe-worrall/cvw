@@ -42,7 +42,7 @@ module fma16_classification(
 
     // Assigning Signs, Exponents, and Mantissas for x, y, and z
     assign {xs, xe, xm} = x;
-    assign {ys, ye, ym} = (add) ? y : 16'h3c00;
-    assign {zs, ze, zm} = (mul) ? z : 16'h0000;
+    assign {ys, ye, ym} = (add) ? 16'h3c00 : y;
+    assign {zs, ze, zm} = (mul) ? 16'h0000 : z;
 
 endmodule

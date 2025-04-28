@@ -44,10 +44,12 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
     *             case applies here, where if z is zero, then we have to check to make sure the product isn't
     *             subnormal; if it is, we have to subtract am (i.e. remove 1 from the product).
     ***/
+    logic flag;
     
     assign a_cnt_pos = (~a_cnt + 1'b1); // the inverted value of a_cnt (used if a_cnt is negative)
     always_comb begin
         m_shift = 8'bxxxxxxx; // should be invalid if not set in this combination block
+        flag = 1'b0;
 
         // If the product and the addend are opposite, then the 1 value being searched for is
         //    either within the first three bits of the centered added plot, or it is in the
@@ -67,6 +69,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
                 else if (sm[END_BITS + 20 + a_cnt_pos - 6'b000010])  m_shift = { {2{1'b1}}, (a_cnt + 6'b000010) };
 
             end else begin  
+
                 
                 // a_cnt is -2 or above, we need to look through every bit in the sum's mantissa (which is 
                 //          24 bits total, including the ENDING_BITS) **priority encoder
