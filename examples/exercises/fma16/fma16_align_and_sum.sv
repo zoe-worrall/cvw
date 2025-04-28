@@ -25,10 +25,9 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
     output logic [7:0]   m_shift, // additional adjustment for adjusting decimal
 
-    output logic product_greater,
-
     output logic [5:0]  diff_count, // the difference between ze and pe exponents
     output logic [1:0]  which_nx,   // used to determine if subnormal
+    output logic product_greater, big_z,
     output logic        subtract_1, z_visible, prod_visible, ms // used to adjust if z or product is subnormal and negative
     );
 
@@ -87,7 +86,6 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
         // if z is greater, that means we'll be subtracting from z
         else if ((pm!='0)  & (~z_zero))  which_nx = 1;
-
         else                             which_nx = 3;
     end
 
@@ -164,9 +162,14 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         else if (pot_acnt==27) z_visible = |{zm_bf_shift[END_BITS+25:0]};
         else if (pot_acnt==28) z_visible = |{zm_bf_shift[END_BITS+26:0]};
         else if (pot_acnt==29) z_visible = |{zm_bf_shift[END_BITS+27:0]};
-        else if (pot_acnt==30) z_visible = |{zm_bf_shift[END_BITS+28:0]};
+        // else if (pot_acnt==30) z_visible = |{zm_bf_shift[END_BITS+28:0]};
         else  z_visible = 1'b0; //  z_visible = ((ze!=0) | |zm);
     end
+
+    logic [5:0] pos_pe;
+    assign pos_pe = ~pe + 1'b1;
+
+    assign big_z = (~pot_acnt[6] & pot_acnt>=30) ? (pe[5] & ~ze[4] & (pos_pe>={1'b0, ze})) ? 1'b0 : 1'b1 : 1'b0;
 
 
     logic [7:0] pos_m_shift;
