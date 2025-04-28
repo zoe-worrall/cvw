@@ -31,7 +31,7 @@ module fma16(
     ///////////////////////////////////////////////////////
 
     // Parameters for the size of vectors within the system
-    parameter WIDTH = 64;   // the size of a the vector used when summing/multiplying
+    parameter WIDTH = 60;   // the size of a the vector used when summing/multiplying
     parameter ENDING_ZEROS = 2; // the number of extra zeros at the end that aid in rounding
     parameter nan_val = 16'b0_111_11_1000000000;
 
@@ -60,11 +60,11 @@ module fma16(
 
     logic subtract; // whether the system should subtract z from x*y
     logic can_add, can_multiply; // whether the system can add / multiply
-    logic no_product, z_visible, subtract_1, prod_visible; // if the product is zero/subnormal
+    logic no_product, z_visible, subtract_1; // if the product is zero/subnormal
     logic [1:0] which_nx; // whether the product or z is inexact ( [ z is inexact, product is inexact] )
     logic [5:0] diff_count; // the difference between the exponents of the product and z
     
-    logic product_greater;
+
 
 
     // Final Variables (from the FMA algorithm); these are what are added/tell exactly what is being added
@@ -138,12 +138,9 @@ module fma16(
 
                                                         .m_shift, // shift amount for leading 1's
 
-                                                        .which_nx, .diff_count, .subtract_1, .ms,
-                                                        .z_visible, .prod_visible,
-
-                                                        .product_greater,
+                                                        .which_nx, .diff_count, .subtract_1, .z_visible,
                                                         
-                                                        .sm // which nx to use and the difference between the exponents
+                                                        .ms, .sm // which nx to use and the difference between the exponents
     );
     
 
@@ -168,19 +165,18 @@ module fma16(
     logic raise_flag;
     logic nv, of, uf, nx; // invalid, overflow, underflow, inexact
 
+    logic nx_bits; // the bits coming out of the rounding logic
+
     fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
                                                      .ms, .m_shift, // the sum of the mantissa and the shift amount
                                                      .which_nx, .subtract_1,  // which nx to use, which subtract
                                                      .z_visible, .prod_visible,  // used for inexact
-
-                                                     .product_greater,
-
                                                      .roundmode,     // the rounding mode of the system
                                                      .zs, .ze, .pe, .zm,  // the exponent and mantissa of z
                                                      
                                                      // outputs (final result without taking errors into account)
-                                                    .me, // .fin_mm(mm),
-                                                    .nx,
+                                                     .me, // .fin_mm(mm),
+                                                    .nx_bits,
                                                     .mult // the exponent and mantissa of the result
     );
 
@@ -197,6 +193,7 @@ module fma16(
 
     assign uf = 0;
 
+    assign nx = nx_bits | z_visible;
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

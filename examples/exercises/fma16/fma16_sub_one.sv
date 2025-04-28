@@ -36,6 +36,7 @@ module fma16_sub_one #(parameter VEC_SIZE, parameter END_BITS) (
                     // product is small enough (but not zero) and z is big enough
                 else
                 begin
+
                     // z is either really small or really big
                     if ( (am[VEC_SIZE:END_BITS]=='0) & (~(z_zero)) ) begin
 
@@ -45,11 +46,8 @@ module fma16_sub_one #(parameter VEC_SIZE, parameter END_BITS) (
                         // this works every time except for a very small scenario that I don't understand
                         else if (ze==5'd1)  subtract_1 = (~(|sm[END_BITS+9:0]));
 
-                        // if pm is 0 at the end, then when the end bits are subtracted, we know that it's already
-                        //      close to the value
-                        else if (pm[END_BITS+19:END_BITS]=='0 & am[END_BITS:0]) subtract_1 = 1'b0;
-
                         // cases when it shouldn't subtract 1:
+                            //
                         else                 subtract_1 = 1'b1;
 
                     end
@@ -61,7 +59,7 @@ module fma16_sub_one #(parameter VEC_SIZE, parameter END_BITS) (
                         subtract_1 = 1'b1;
                     end
 
-                    // This case exists assuming that the difference between numbers is big enough. been getting weird answers:
+
                     else if (pm=='0 & (~(x_zero|y_zero))) begin
                         subtract_1 = 1'b1;
                     end 

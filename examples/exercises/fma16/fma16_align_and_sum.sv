@@ -26,10 +26,8 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
     output logic [5:0]  diff_count, // the difference between ze and pe exponents
     output logic [1:0]  which_nx,   // used to determine if subnormal
-    output logic        subtract_1, z_visible, prod_visible, ms // used to adjust if z or product is subnormal and negative
+    output logic        subtract_1, z_visible, ms // used to adjust if z or product is subnormal and negative
     );
-
-    // logic product_greater;
 
     logic [VEC_SIZE:0] am; // aligned zm for sum
     logic [VEC_SIZE:0] pm; // aligned pm for sum
@@ -42,6 +40,12 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     logic [6:0] pot_acnt;
     assign pot_acnt = pe-{1'b0,ze}; //($signed(pe - ze) > 7'd0) ? (pe - ze) : (ze - pe);
 
+    //                     if negative, make sure its greater than 11
+    assign z_visible = (diff_pe_ze[5]) ? ((~diff_pe_ze + 1'b1) > 6'd11) : (diff_pe_ze > 6'd11); 
+
+    logic smth_shifted_out;
+    // this happens if m_shift is 
+    assign smth_shifted_out = (|sm[END_BITS+m_shift:0])
 
     logic extra;
 
@@ -85,19 +89,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
 
     // a_cnt_pos is only positive if product is greater than ze  ~pot_acnt[6] & |pot_acnt[5:4
-    //
-    //               v  if there was no shift in the zm_bf, that means that we didn't lose any bits and we can just compare which one's bigger
-    //                                                    
-    //                                                    v -13 is just a weird number; if it's there, that means that the system's predominated by z
-    //
-    //                                                                        v check to see if z was moved off of the page - if it wasn't check which of pm or am is bigger
-    //
-    //                                                                                                            v if this is a negative value, ps takes precedence
-    //
-    //                                                                                                                                      v  if pe is bigger than ze, pe was "negative" when computed meaning that x and y are too small
-    //
-    //                                                                                                                                                                    v this still has the potential to be wrong; there may be a case where p was way too small
-    // assign ms = (pot_acnt==0) ? ((pm>am) ? ps : zs) : (pe==-6'd13) ? zs : (z_visible) ? (pm>am) ? ps : zs : (~pot_acnt[6]) ? ps : (pm>am) ? ps : zs;  // calculating final sign of result
+    assign ms = (pot_acnt==0) ? ((pm>am) ? ps : zs) : (pe==-6'd13) ? zs : (z_visible) ? (pm>am) ? ps : zs : (~pot_acnt[6]) ? ps : (pm>am) ? ps : zs;  // calculating final sign of result
 
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -114,12 +106,10 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     logic [VEC_SIZE:0] testy_am;
     assign testy_am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
     assign pm = (x_zero | y_zero) ? 0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
+
+    //~pot_acnt[6]|(pe==-6'd13
+    assign product_greater = (pm==am)?1:(am>pm)?0:(am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1;   //(am!='0)?1:(pe>{1'b0, ze})?(~pe[5])?0:((pe==-6'd13)?0:1):0);
     
-    assign product_greater = (pm==testy_am)?1:(testy_am>pm)?0:(testy_am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1;   //(am!='0)?1:(pe>{1'b0, ze})?(~pe[5])?0:((pe==-6'd13)?0:1):0);
-
-    /// just added product_greater logi
-    assign am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : (pot_acnt>35 & ~product_greater) ? zm << ( ~diff_pe_ze) : zm_bf_shift >> pot_acnt;
-
     logic pot_ms;
     assign ms = (product_greater) ? ps : zs;
 
