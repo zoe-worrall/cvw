@@ -138,9 +138,10 @@ module fma16(
 
                                                         .m_shift, // shift amount for leading 1's
 
-                                                        .which_nx, .diff_count, .subtract_1, .z_visible,
+                                                        .which_nx, .diff_count, .subtract_1, .ms,
+                                                        .z_visible, .prod_visible,
                                                         
-                                                        .ms, .sm // which nx to use and the difference between the exponents
+                                                        .sm // which nx to use and the difference between the exponents
     );
     
 
@@ -169,7 +170,8 @@ module fma16(
 
     fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
                                                      .ms, .m_shift, // the sum of the mantissa and the shift amount
-                                                     .which_nx, .subtract_1, .z_visible,   // which nx to use, 
+                                                     .which_nx, .subtract_1,  // which nx to use, which subtract
+                                                     .z_visible, .prod_visible,  // used for inexact
                                                      .roundmode,     // the rounding mode of the system
                                                      .zs, .ze, .pe, .zm,  // the exponent and mantissa of z
                                                      
