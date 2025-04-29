@@ -18,7 +18,7 @@ module fma16_sub_one #(parameter VEC_SIZE, parameter END_BITS) (
 
     input  logic [VEC_SIZE:0] am, sm, pm, // aligned zm for sum
 
-    input  logic big_z,
+    input  logic big_z, z_is_solution, // shouldve_been_zero,
     
     output logic         subtract_1  // whether or not to subtract 1
     );
@@ -31,7 +31,8 @@ module fma16_sub_one #(parameter VEC_SIZE, parameter END_BITS) (
             begin
                 // between -24 and 24, don't subtract anything
                 if ((($signed(diff_pe_ze) > $signed(-7'd12)) & ($signed(diff_pe_ze) < 7'd12))) // changed from 24
-                    subtract_1 = 0;
+                    if (big_z) subtract_1 = (z_is_solution) ? (~(x_zero|y_zero)) : 1'b0;
+                    else subtract_1 = 0;
 
                 // subtract 1 if: 
                     // z is small enough and the product is big (i.e. am is 0, and z is not zero or exponent of 1 (smallest))
@@ -40,8 +41,6 @@ module fma16_sub_one #(parameter VEC_SIZE, parameter END_BITS) (
                 begin
                     // z is either really small or really big
                     if ( (am[VEC_SIZE:END_BITS]=='0) & (~(z_zero))) begin
-
-                        if (big_z)          subtract_1 = ~(x_zero|y_zero);
 
                         if (pe==-6'd13)     subtract_1 = (ze==5'd1) ? |zm : 1'b1;
 
@@ -72,7 +71,8 @@ module fma16_sub_one #(parameter VEC_SIZE, parameter END_BITS) (
                     
                     
                     else begin
-                        subtract_1 = 1'b0;
+                        if (big_z)          subtract_1 = (z_is_solution) ? ~(x_zero|y_zero) : 1'b0;
+                        else subtract_1 = 1'b0;
                     end
                 end
 

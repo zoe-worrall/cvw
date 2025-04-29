@@ -16,6 +16,8 @@ module fma16_sum #(parameter VEC_SIZE, parameter END_BITS) (
         input logic                 no_product, // whether the product is zero
         input logic                 z_zero, // whether z is zero
 
+        input  logic                big_z,
+
         output logic [VEC_SIZE:0]   sm // the sum of the product and z mantissas
     );
 
@@ -27,12 +29,20 @@ module fma16_sum #(parameter VEC_SIZE, parameter END_BITS) (
     assign diff_sum = (pm > am) ? (pm - am) : (am - pm);
   
     always_comb begin
-        if (diff_sign)
-            if (a_cnt[6] & (a_cnt != -6'd2) & (a_cnt != -6'd1)) 
-                sm = diff_sum;
-            else  
-                sm = (z_zero) ? (pm) : diff_sum;
-        else sm = (z_zero) ? (no_product) ? (pm - am) : pm : (am + pm);
+        if (big_z)  begin
+            if (~diff_sign) begin
+                sm = (z_zero) ? pm : (pm + am);
+            end else begin
+                sm = (z_zero) ? pm : (am - pm);
+            end
+        end else begin
+            if (diff_sign)
+                if (a_cnt[6] & (a_cnt != -6'd2) & (a_cnt != -6'd1)) 
+                    sm = diff_sum;
+                else  
+                    sm = (z_zero) ? (pm) : diff_sum;
+            else sm = (z_zero) ? (no_product) ? (pm - am) : pm : (am + pm);
+        end
     end
 
     // assign sm = (pm==am) ? '0 : (diff_sign) ? ((z_zero) ? (pm) : (diff_sum)) : ((z_zero) ? (no_product) ? (pm - am) : pm : (am + pm));

@@ -29,6 +29,14 @@ set drive $::env(DRIVE)
 
 eval file copy -force [glob ${hdl_src}/fma16.sv] {$outputDir/hdl/}
 eval file copy -force [glob ${hdl_src}/fma16wrapper.sv] {$outputDir/hdl/}
+eval file copy -force [glob ${hdl_src}/fma16_align_and_sum.sv] {$outputDir/hdl/}
+eval file copy -force [glob ${hdl_src}/fma16_classification.sv] {$outputDir/hdl/}
+eval file copy -force [glob ${hdl_src}/fma16_mshifter.sv] {$outputDir/hdl/}
+eval file copy -force [glob ${hdl_src}/fma16_pcalc.sv] {$outputDir/hdl/}
+eval file copy -force [glob ${hdl_src}/fma16_result.sv] {$outputDir/hdl/}
+eval file copy -force [glob ${hdl_src}/fma16_round.sv] {$outputDir/hdl/}
+eval file copy -force [glob ${hdl_src}/fma16_sub_one.sv] {$outputDir/hdl/}
+eval file copy -force [glob ${hdl_src}/fma16_sum.sv] {$outputDir/hdl/}
 
 # Check if a wrapper is needed and create it (to pass parameters when cvw_t parameters are used)
 set wrapper 0

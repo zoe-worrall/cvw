@@ -12,8 +12,8 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
         input  logic [6:0]        a_cnt, // exponent difference between pe and ze for adjusting
         input  logic              diff_sign, // sign if product and z are diff. signs
 
-        input  logic shouldve_been_zero,
-        input  logic [7:0] priority_encode_zero,
+        input  logic big_z,
+        // input  logic [7:0] priority_encode_zero,
 
         output logic [7:0]        m_shift // additional adjustment to find the first 1 in the array
     );
@@ -54,7 +54,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
         m_shift = 8'bxxxxxxx; // should be invalid if not set in this combination block
         flag = 1'b0;
 
-        if (shouldve_been_zero) begin
+        if (big_z) begin
             
                 if (sm[END_BITS + 66])                       m_shift = -46;
                 else if (sm[END_BITS + 65])                  m_shift = -45;

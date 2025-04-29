@@ -16,11 +16,12 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic              z_visible,
     input  logic              prod_visible,
 
-    input  logic              big_z, shouldve_been_zero, // if z is so big that it dwarfs the product, and also a check to make sure that -pe != ze (wrong size for pe)
+    input  logic              big_z, z_is_solution, // if z is so big that it dwarfs the product, and also a check to make sure that -pe != ze (wrong size for pe)
     
     input  logic              zs, // sign of z
     input  logic [4:0]        ze, // exponent of z
     input  logic [9:0]        zm, // mantissa of z
+    input  logic              ps, // sign of the product
     input  logic [5:0]        pe, // exponent of the product
 
     input  logic [1:0]        roundmode, // the rounding mode of the system
@@ -83,6 +84,18 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
             fix_z_vis = (ze==-5'd2) ? 1'b0 : 1'b1;
         end
 
+        else if (big_z) begin
+            if (z_is_solution) begin
+                me = ze - ((ps ^ zs) & subtract_1 & ~|zm);
+                mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                fix_z_vis = 1'b1;
+            end else begin
+                me = sum_pe - (~|sm[END_BITS+19:END_BITS]); // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
+                mm = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                fix_z_vis = 1;
+            end
+        end
+
         else if (subtract_1) begin
              // if which_nx is 0, the product is much greater than the z, meaning subnormal things ensue
                 if (which_nx == 0) 
@@ -95,67 +108,61 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
                 else if (which_nx == 1) // this means that product was smaller than z
                 begin
-                    if (shouldve_been_zero) begin
-                            me = sum_pe;
-                            mm = sm;
-                            fix_z_vis = 0;
-                    end else begin
-                        me = ze - 1'b1;
-                        mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                        fix_z_vis = 1;
-                    end
+                    me = ze - 1'b1;
+                    mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                    fix_z_vis = 1;
                     // mm_part = zm;
                 end
 
                 else
                 begin
-                    if (big_z) begin
-                        me = ze - 1'b1;
-                        mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                        fix_z_vis = 1;
-                    end
-                    else begin
+                    // if (big_z) begin
+                    //     me = ze - (~|zm);
+                    //     mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                    //     fix_z_vis = 1;
+                    // end
+                    // else begin
                         me = sum_pe;
                         mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
                         fix_z_vis = 0;
-                    end
+                    // end
                     // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
                 end
         end
 
         else if (m_shift[7])
         begin
-            if (shouldve_been_zero) begin
-                me = ze + (~m_shift+1'b1+8'b00001111);
-                mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-                fix_z_vis=0;
-            end
-            else begin
+            // if (shouldve_been_zero) begin
+            //     me = ze + (~m_shift+1'b1+8'b00001111);
+            //     mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+            //     fix_z_vis=0;
+            // end
+            // else begin
                 me = sum_pe[4:0];
                 mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
                 fix_z_vis = 0;
-            end
+            // end
             // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
         end
 
         else
         begin
-            if (big_z) begin
-                if (shouldve_been_zero) begin
-                    me = ze;
-                    mm = sm;
-                    fix_z_vis = 0;
-                end else begin
-                    me = ze;
-                    mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                    fix_z_vis = 1;
-                end
-            end
-            else begin
+            // if (big_z) begin
+            //     if (shouldve_been_zero) begin
+            //         me = ze;
+            //         mm = sm;
+            //         fix_z_vis = 0;
+            //     end else begin
+            //         me = ze;
+            //         mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+            //         fix_z_vis = 1;
+            //     end
+            // end
+            // else begin
                 me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
                 mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
                 fix_z_vis = 0;
-            end
+            // end
             // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)];
         end
     end
@@ -173,7 +180,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
     logic nx_bits;
 
-    assign nx = nx_bits | prod_visible | (z_visible ^ fix_z_vis);
+    assign nx = nx_bits | prod_visible | (z_visible ^ fix_z_vis) | (big_z);
 
     // Calculates how to round the result
     // fma16_round #(VEC_SIZE, END_BITS) rounder(.ms, .mm, .roundmode, .subtract_1, .fin_mm);
