@@ -34,6 +34,7 @@ module fma16(
     parameter WIDTH = 64;   // the size of a the vector used when summing/multiplying
     parameter ENDING_ZEROS = 2; // the number of extra zeros at the end that aid in rounding
     parameter nan_val = 16'b0_111_11_1000000000;
+    parameter neg_zero = 16'b1_00000_0000000000;
 
     // Components of x, y, and z
     logic         xs, ys, zs; // the signs of x, y, z
@@ -50,7 +51,7 @@ module fma16(
     logic [4:0] me; // the exponent of the final result
     logic [WIDTH:0] mm; // the mantissa of the final result
 
-    logic big_z;
+    logic big_z, shouldve_been_zero;
 
 
 
@@ -144,7 +145,7 @@ module fma16(
                                                         .which_nx, .diff_count, .subtract_1, .ms,
                                                         .z_visible, .prod_visible,
 
-                                                        .big_z,
+                                                        .big_z, .shouldve_been_zero,
                                                         
                                                         .sm // which nx to use and the difference between the exponents
     );
@@ -178,7 +179,7 @@ module fma16(
                                                      .roundmode,     // the rounding mode of the system
                                                      .zs, .ze, .pe, .zm,  // the exponent and mantissa of z
 
-                                                     .big_z,
+                                                     .big_z, .shouldve_been_zero,
                                                      
                                                      // outputs (final result without taking errors into account)
                                                     .me, // .fin_mm(mm),
@@ -195,7 +196,7 @@ module fma16(
     // assign nx = 1'b1; //(mm == 0) ? 1'b0 : ((mm - { {(WIDTH-1-10-10-ENDING_ZEROS){1'b0}}, 1'b1, mult[9:0], (10+ENDING_ZEROS)'(1'b0) }) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this 
     
     // Invalid if any input is NaN
-    assign nv = ((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
+    assign nv = ((result==nan_val) & ~(x_zero&y_zero)) | (((x_zero|y_zero) & z_inf) & (x^y)) | ((x_zero|y_zero) & z_inf & xs & ys); //((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
 
     assign uf = 0;
 
@@ -206,7 +207,7 @@ module fma16(
     assign flags = {nv, of, uf, nx}; // { invalid, overflow, underflow, inexact }
 
     // Assign result based on the NaN, Zero, and Infinity values of the system; apply these rules before assigning mult
-    assign result = (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | x_nan)) | (y_zero & (x_inf | x_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
+    assign result = (x_zero & y_zero & z_zero) ? ((zs&xs)^(zs&ys)) ? neg_zero : '0 : ((x_zero|y_zero) & z_inf) ? (x^y) ? z : nan_val : (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | z_nan)) | (y_zero & (x_inf | z_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
     
 
 

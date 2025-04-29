@@ -16,7 +16,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic              z_visible,
     input  logic              prod_visible,
 
-    input  logic              big_z, // if z is so big that it dwarfs the product
+    input  logic              big_z, shouldve_been_zero, // if z is so big that it dwarfs the product, and also a check to make sure that -pe != ze (wrong size for pe)
     
     input  logic              zs, // sign of z
     input  logic [4:0]        ze, // exponent of z
@@ -95,16 +95,22 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
                 else if (which_nx == 1) // this means that product was smaller than z
                 begin
-                    me = ze - 1'b1;
-                    mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                    fix_z_vis = 1;
+                    if (shouldve_been_zero) begin
+                            me = sum_pe;
+                            mm = sm;
+                            fix_z_vis = 0;
+                    end else begin
+                        me = ze - 1'b1;
+                        mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                        fix_z_vis = 1;
+                    end
                     // mm_part = zm;
                 end
 
                 else
                 begin
                     if (big_z) begin
-                        me = ze; // - 1'b1;
+                        me = ze - 1'b1;
                         mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
                         fix_z_vis = 1;
                     end
@@ -119,18 +125,31 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
         else if (m_shift[7])
         begin
-            me = sum_pe[4:0];
-            mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-            fix_z_vis = 0;
+            if (shouldve_been_zero) begin
+                me = ze + (~m_shift+1'b1+8'b00001111);
+                mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                fix_z_vis=0;
+            end
+            else begin
+                me = sum_pe[4:0];
+                mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                fix_z_vis = 0;
+            end
             // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
         end
 
         else
         begin
             if (big_z) begin
-                        me = ze;
-                        mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                        fix_z_vis = 1;
+                if (shouldve_been_zero) begin
+                    me = ze;
+                    mm = sm;
+                    fix_z_vis = 0;
+                end else begin
+                    me = ze;
+                    mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                    fix_z_vis = 1;
+                end
             end
             else begin
                 me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);

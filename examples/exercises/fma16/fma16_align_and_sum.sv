@@ -25,7 +25,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
     output logic [7:0]   m_shift, // additional adjustment for adjusting decimal
 
-    output logic        big_z,  // whether z dwarfs product or not (i.e. if z is way bigger than the product)
+    output logic        big_z, shouldve_been_zero,  // whether z dwarfs product or not (i.e. if z is way bigger than the product)
 
     output logic [5:0]  diff_count, // the difference between ze and pe exponents
     output logic [1:0]  which_nx,   // used to determine if subnormal
@@ -118,13 +118,77 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     
 
     // logic big_z;
-    assign big_z = (~pot_acnt[6] & pe[5]); // if z is actually bigger than p, but not caught by the acnt
+    assign big_z = (~pot_acnt[6] & pe[5] & (pe!=-6'd13)); // if z is actually bigger than p, but not caught by the acnt
 
     logic [VEC_SIZE-1:0] zm_bf_shift;
     assign zm_bf_shift = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
 
-    assign am = (big_z) ? zm_bf_shift : (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
-    assign pm = (x_zero | y_zero | (big_z&~z_zero)) ? 0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
+
+    // done to account for weird subtraction
+    // logic shouldve_been_zero;
+    // basically, pe-ze actually has the potential to be 13 under what is should be, so it could "overlaod" if subtracting a positive
+    //      ze value such that it becomes completely positive
+    // examples:
+    //               pe           |             ze
+    //                            |
+    //              -13           |      the system would've been shifted by ze
+    //              -12           |      the system would've been shifted by ze + 1
+    //               ...          |
+    //              -4            |      the two x/y values sum to 9. ze + 9 , basically
+
+    logic [7:0] priority_encode_zero;
+    parameter CASE1 = 5, CASE2 = 3;
+    always_comb begin
+        if ({~pe+1'b1} < ze) begin
+            case (pe)
+                (-6'd13): priority_encode_zero = {3'b00, ze}-CASE1;
+                (-6'd12): priority_encode_zero = {3'b00, ze}-{CASE1-1};
+                (-6'd11): priority_encode_zero = {3'b00, ze}-{CASE1-2};
+                (-6'd10): priority_encode_zero = {3'b00, ze}-{CASE1-3};
+                (-6'd9): priority_encode_zero =  {3'b00, ze}-{CASE1-4};
+                (-6'd8): priority_encode_zero =  {3'b00, ze}+8'd0;
+                (-6'd7): priority_encode_zero =  {3'b00, ze}+{CASE1-4};
+                (-6'd6): priority_encode_zero =  {3'b00, ze}+{CASE1-3};
+                (-6'd5): priority_encode_zero =  {3'b00, ze}+{CASE1-2};
+                (-6'd4): priority_encode_zero =  {3'b00, ze}+{CASE1-1};
+                (-6'd3): priority_encode_zero =  {3'b00, ze}+{CASE1};
+                (-6'd2): priority_encode_zero =  {3'b00, ze}+{CASE1+1};
+                (-6'd1): priority_encode_zero =  {3'b00, ze}+{CASE1+2};
+                default : priority_encode_zero = 4'bxxxx;
+            endcase
+        end else begin
+            case (pe)
+                (-6'd13): priority_encode_zero = {3'b00, ze}-8'd0;
+                (-6'd12): priority_encode_zero = {3'b00, ze}+8'd1;
+                (-6'd11): priority_encode_zero = {3'b00, ze}-8'd2;
+                (-6'd10): priority_encode_zero = {3'b00, ze}-8'd3;
+                (-6'd9): priority_encode_zero =  {3'b00, ze}+8'd4;
+                (-6'd8): priority_encode_zero =  {3'b00, ze}+8'd5;
+                (-6'd7): priority_encode_zero =  {3'b00, ze}+8'd6;
+                (-6'd6): priority_encode_zero =  {3'b00, ze}+8'd7;
+                (-6'd5): priority_encode_zero =  {3'b00, ze}+8'd8;
+                (-6'd4): priority_encode_zero =  {3'b00, ze}+8'd9;
+                (-6'd3): priority_encode_zero =  {3'b00, ze}+8'd10;
+                (-6'd2): priority_encode_zero =  {3'b00, ze}+8'd11;
+                (-6'd1): priority_encode_zero =  {3'b00, ze}+8'd12;
+                default : priority_encode_zero = 4'bxxxx;
+            endcase
+        end
+    end
+
+    // 13 in binary is 1101, inverted its 110011: 
+
+    assign shouldve_been_zero = (big_z & ~(z_zero|x_zero|y_zero) & pe>=6'b110011); // (big_z&~(z_zero|x_zero|y_zero)) ? (pe[5] & ((~pe+1'b1)<6'd14) & ($unsigned(ze)>=(~pe+1'b1)) & (($unsigned(ze))<6'd19)) : '0; // ((~pe+1'b1)=={1'b0, ze});
+
+    assign am = (big_z) ? (zm_bf_shift << priority_encode_zero) : (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
+    assign pm = (x_zero | y_zero) ? '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
+    // assign pm = (x_zero | y_zero | (big_z&~z_zero)) ? (shouldve_been_zero) ? (mid_pm >> (ze-2)) : '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
+
+    logic neg_one_correction;
+    assign neg_one_correction = (($signed(pot_acnt))==7'd57);
+
+    // assign pm = (x_zero | y_zero | (big_z&~z_zero)) ? (shouldve_been_zero) ? (mid_pm >> (ze+2-neg_one_correction)) : '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
+    // assign pm = (x_zero | y_zero) : '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
 
     //~pot_acnt[6]|(pe==-6'd13
     assign product_greater = (pm==am)?1:(am>pm)?0:(am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1;   //(am!='0)?1:(pe>{1'b0, ze})?(~pe[5])?0:((pe==-6'd13)?0:1):0);
@@ -209,7 +273,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     fma16_sum #(VEC_SIZE, END_BITS) sum(.pm, .am, .a_cnt(pot_acnt), .diff_sign(~z_zero & (zs ^ ps)), .no_product, .z_zero, .sm); // Calculates the sum of the product and z mantissas
 
     // determine how much to shift the mantissa in order to get the leading 1
-    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .a_cnt(pot_acnt), .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
+    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .priority_encode_zero, .shouldve_been_zero, .a_cnt(pot_acnt), .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
 
 
 

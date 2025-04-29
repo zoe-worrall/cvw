@@ -39,9 +39,9 @@ module fma16_sub_one #(parameter VEC_SIZE, parameter END_BITS) (
                 else
                 begin
                     // z is either really small or really big
-                    if ( (am[VEC_SIZE:END_BITS]=='0) & (~(z_zero)) ) begin
+                    if ( (am[VEC_SIZE:END_BITS]=='0) & (~(z_zero))) begin
 
-                        if (big_z) subtract_1 = ~(x_zero|y_zero);
+                        if (big_z)          subtract_1 = ~(x_zero|y_zero);
 
                         if (pe==-6'd13)     subtract_1 = (ze==5'd1) ? |zm : 1'b1;
 

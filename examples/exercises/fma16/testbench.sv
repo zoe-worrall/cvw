@@ -30,6 +30,7 @@ module testbench_fma16;
   // 1. all_adds
   // 2. harris_fma_1
   // 3. harris_comp_fma_1_v_2
+  // 4. combo_files_test
   initial
     begin
       $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\combo_files_test.tv", testvectors);

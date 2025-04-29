@@ -12,6 +12,9 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
         input  logic [6:0]        a_cnt, // exponent difference between pe and ze for adjusting
         input  logic              diff_sign, // sign if product and z are diff. signs
 
+        input  logic shouldve_been_zero,
+        input  logic [7:0] priority_encode_zero,
+
         output logic [7:0]        m_shift // additional adjustment to find the first 1 in the array
     );
 
@@ -51,6 +54,81 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
         m_shift = 8'bxxxxxxx; // should be invalid if not set in this combination block
         flag = 1'b0;
 
+        if (shouldve_been_zero) begin
+            
+                if (sm[END_BITS + 66])                       m_shift = -46;
+                else if (sm[END_BITS + 65])                  m_shift = -45;
+                else if (sm[END_BITS + 64])                  m_shift = -44;
+                else if (sm[END_BITS + 63])                  m_shift = -43;
+                else if (sm[END_BITS + 62])                  m_shift = -42;
+                else if (sm[END_BITS + 61])                  m_shift = -41;
+                else if (sm[END_BITS + 60])                  m_shift = -40;
+                else if (sm[END_BITS + 59])                  m_shift = -39;
+                else if (sm[END_BITS + 58])                  m_shift = -38;
+                else if (sm[END_BITS + 57])                  m_shift = -37;
+                else if (sm[END_BITS + 56])                  m_shift = -36;
+                else if (sm[END_BITS + 55])                  m_shift = -35;
+                else if (sm[END_BITS + 54])                  m_shift = -34;
+                else if (sm[END_BITS + 53])                  m_shift = -33;
+                else if (sm[END_BITS + 52])                  m_shift = -32;
+                else if (sm[END_BITS + 51])                  m_shift = -31;
+                else if (sm[END_BITS + 50])                  m_shift = -30;
+                else if (sm[END_BITS + 49])                  m_shift = -29;
+                else if (sm[END_BITS + 48])                  m_shift = -28;
+                else if (sm[END_BITS + 47])                  m_shift = -27;
+                else if (sm[END_BITS + 46])                  m_shift = -26;
+                else if (sm[END_BITS + 45])                  m_shift = -25;
+                else if (sm[END_BITS + 44])                  m_shift = -24;
+                else if (sm[END_BITS + 43])                  m_shift = -23;
+                else if (sm[END_BITS + 42])                  m_shift = -22;
+                else if (sm[END_BITS + 41])                  m_shift = -21;
+                else if (sm[END_BITS + 40])                  m_shift = -20;
+                else if (sm[END_BITS + 39])                  m_shift = -19;
+                else if (sm[END_BITS + 38])                  m_shift = -18;
+                else if (sm[END_BITS + 37])                  m_shift = -17;
+                else if (sm[END_BITS + 36])                  m_shift = -16;
+                else if (sm[END_BITS + 35])                  m_shift = -15;
+                else if (sm[END_BITS + 34])                  m_shift = -14;
+                else if (sm[END_BITS + 33])                  m_shift = -13;
+                else if (sm[END_BITS + 32])                  m_shift = -12;
+                else if (sm[END_BITS + 31])                  m_shift = -11;
+                else if (sm[END_BITS + 30])                  m_shift = -10;
+                else if (sm[END_BITS + 29])                  m_shift = -9;
+                else if (sm[END_BITS + 28])                  m_shift = -8;
+                else if (sm[END_BITS + 27])                  m_shift = -7;
+                else if (sm[END_BITS + 26])                  m_shift = -6;
+                else if (sm[END_BITS + 25])                  m_shift = -5;
+                else if (sm[END_BITS + 24])                  m_shift = -4;
+                else if (sm[END_BITS + 23])                  m_shift = -3;
+                else if (sm[END_BITS + 22])                  m_shift = -2;
+                else if (sm[END_BITS + 21])                  m_shift = -1;
+                else if (sm[END_BITS + 20])                  m_shift =  0;
+                else if (sm[END_BITS + 19])                  m_shift =  1;
+                else if (sm[END_BITS + 18])                  m_shift =  2;
+                else if (sm[END_BITS + 17])                  m_shift =  3;
+                else if (sm[END_BITS + 16])                  m_shift =  4;
+                else if (sm[END_BITS + 15])                  m_shift =  5;
+                else if (sm[END_BITS + 14])                  m_shift =  6;
+                else if (sm[END_BITS + 13])                  m_shift =  7;
+                else if (sm[END_BITS + 12])                  m_shift =  8;
+                else if (sm[END_BITS + 11])                  m_shift =  9;
+                else if (sm[END_BITS + 10])                  m_shift = 10;
+                else if (sm[END_BITS +  9])                  m_shift = 11;
+                else if (sm[END_BITS +  8])                  m_shift = 12;
+                else if (sm[END_BITS +  7])                  m_shift = 13;
+                else if (sm[END_BITS +  6])                  m_shift = 14;
+                else if (sm[END_BITS +  5])                  m_shift = 15;
+                else if (sm[END_BITS +  4])                  m_shift = 16;
+                else if (sm[END_BITS +  3])                  m_shift = 17;
+                else if (sm[END_BITS +  2])                  m_shift = 18;
+                else if (sm[END_BITS +  1])                  m_shift = 19;
+                else if (sm[END_BITS +  0])                  m_shift = 20;
+                else if (sm[END_BITS -  1])                  m_shift = 21;
+                else if (sm[END_BITS -  2])                  m_shift = 22;
+                else                                         m_shift = 23;
+
+
+        end else begin
         // If the product and the addend are opposite, then the 1 value being searched for is
         //    either within the first three bits of the centered added plot, or it is in the
         //    trailing 20 bits.
@@ -138,6 +216,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
                 else if (sm[END_BITS + 20])                    m_shift =  0;
             end
 
+        end
         end
     end
 

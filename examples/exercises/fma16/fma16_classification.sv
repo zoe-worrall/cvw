@@ -36,9 +36,9 @@ module fma16_classification(
     assign z_inf = (z==16'b0_11111_0000000000) & ~add;
 
     // NaNs
-    assign x_nan  = ((x[15:10]==6'b011_111) & (x[9:0]!=0));
-    assign y_nan = ((y[15:10]==6'b011_111) & (y[9:0]!=0)) & mul;
-    assign z_nan = ((z[15:10]==6'b011_111) & (z[9:0]!=0)) & ~add;
+    assign x_nan  = ((x[15:10]==6'b111_111) | (x[15:10]==6'b011_111) & (x[9:0]!=0));
+    assign y_nan = ((y[15:10]==6'b111_111) | (y[15:10]==6'b011_111) & (y[9:0]!=0)) & mul;
+    assign z_nan = ((z[15:10]==6'b111_111) | (z[15:10]==6'b011_111) & (z[9:0]!=0)) & ~add;
 
     // Assigning Signs, Exponents, and Mantissas for x, y, and z
     assign {xs, xe, xm} = x;
