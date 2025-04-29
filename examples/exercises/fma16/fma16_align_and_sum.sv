@@ -200,7 +200,6 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         else if (pot_acnt==27) z_visible = |{zm_bf_shift[END_BITS+25:0]};
         else if (pot_acnt==28) z_visible = |{zm_bf_shift[END_BITS+26:0]};
         else if (pot_acnt==29) z_visible = |{zm_bf_shift[END_BITS+27:0]};
-        else if (pot_acnt==30) z_visible = |{zm_bf_shift[END_BITS+28:0]};
         else                   z_visible = 1'b0; //  z_visible = ((ze!=0) | |zm);
         
     end

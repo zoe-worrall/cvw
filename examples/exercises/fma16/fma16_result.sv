@@ -23,6 +23,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic [9:0]        zm, // mantissa of z
     input  logic              ps, // sign of the product
     input  logic [5:0]        pe, // exponent of the product
+    input  logic [21:0]       mid_pm, // mantissa of the product
 
     input  logic [1:0]        roundmode, // the rounding mode of the system
 
@@ -98,7 +99,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
             end else begin
                 me = sum_pe - (sm_shifted==sm_shift_back); // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
                 mm = sm_shifted;
-                fix_z_vis = 1;
+                fix_z_vis = 1'b0;
             end
         end
 
@@ -156,7 +157,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
     logic nx_bits;
 
-    assign nx = nx_bits | prod_visible | (z_visible ^ fix_z_vis) | (big_z);
+    assign nx = nx_bits | prod_visible | (z_visible ^ fix_z_vis) | (big_z & z_is_solution & |mid_pm[19:0]);
 
     // Calculates how to round the result
     // fma16_round #(VEC_SIZE, END_BITS) rounder(.ms, .mm, .roundmode, .subtract_1, .fin_mm);

@@ -177,7 +177,8 @@ module fma16(
                                                      .which_nx, .subtract_1,  // which nx to use, which subtract
                                                      .z_visible, .prod_visible,  // used for inexact
                                                      .roundmode,     // the rounding mode of the system
-                                                     .zs, .ze, .ps, .pe, .zm,  // the exponent and mantissa of z
+                                                     .zs, .ze, .zm,  // the exponent and mantissa of z
+                                                     .ps, .pe, .mid_pm,
 
                                                      .big_z, .z_is_solution,
                                                      
@@ -206,8 +207,31 @@ module fma16(
     // Assigning the flags of the system; these are used to determine if the result is valid or not
     assign flags = {nv, of, uf, nx}; // { invalid, overflow, underflow, inexact }
 
+    // 7fff = 0_11111_1111111111111
+    // 
+
+    logic [15:0] fix_result;
+    logic fix_flag;
+    always_comb begin
+        fix_flag = 0;
+        if (x_zero & y_zero & z_zero)
+            if ((zs&xs) ^ (zs&ys)) begin fix_result = neg_zero; fix_flag = 1; end
+            else                   begin fix_result = '0; fix_flag = 1; end
+        else
+            if ((x_zero|y_zero) & z_inf)
+                if (x^y)           begin fix_result = z; fix_flag = 1; end
+                else               begin fix_result = nan_val; fix_flag = 1; end
+            else if (x_nan | y_nan | z_nan)
+                                   begin fix_result = nan_val; fix_flag = 1; end
+            else if (x_zero & (y_inf | z_nan) | (y_zero) & (x_inf | z_nan))
+                                    begin fix_result = nan_val; fix_flag = 1; end
+            else if (x_zero | y_zero)
+                if (z_zero)         begin fix_result = {((xs^ys) & zs), 15'b0}; fix_flag = 1; end
+        
+    end
+
     // Assign result based on the NaN, Zero, and Infinity values of the system; apply these rules before assigning mult
-    assign result = (x_zero & y_zero & z_zero) ? ((zs&xs)^(zs&ys)) ? neg_zero : '0 : ((x_zero|y_zero) & z_inf) ? (x^y) ? z : nan_val : (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | z_nan)) | (y_zero & (x_inf | z_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
+    assign result = (fix_flag) ? fix_result : mult; //result = (x_zero & y_zero & z_zero) ? ((zs&xs)^(zs&ys)) ? neg_zero : '0 : ((x_zero|y_zero) & z_inf) ? (x^y) ? z : nan_val : (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | z_nan)) | (y_zero & (x_inf | z_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
     
 
 
