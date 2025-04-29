@@ -64,6 +64,12 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     // Calculates Result Components
     ///////////////////////////////////////////////////////////////////////////////
 
+    logic [VEC_SIZE:0] sm_shifted, sm_shift_back;
+    logic [VEC_SIZE:0] zm_shifted;
+    assign sm_shifted = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+    assign sm_shift_back = (m_shift[7]) ? (sm_shifted <<< (pos_m_shift)) : (sm_shifted >>> m_shift);
+    assign zm_shifted =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+
     // Calculating the exponent and full value of the result; the output of the round mode is used to determine flags
     // m_shift is 0 when:
         // 1. the product is zero
@@ -80,18 +86,18 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
         else if (pe == -6'd13)
         begin
             me = (ze!=5'd1) ? ze - (~|zm & subtract_1) : ze; //((subtract_1 | ms) & ~|zm); // ze - ((subtract_1 | ms) & ~|zm);  // fin_mm[(END_BITS+19):(END_BITS+10)]
-            mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+            mm = zm_shifted;
             fix_z_vis = (ze==-5'd2) ? 1'b0 : 1'b1;
         end
 
         else if (big_z) begin
             if (z_is_solution) begin
                 me = ze - ((ps ^ zs) & subtract_1 & ~|zm);
-                mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                mm = zm_shifted;
                 fix_z_vis = 1'b1;
             end else begin
-                me = sum_pe - (~|sm[END_BITS+19:END_BITS]); // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
-                mm = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                me = sum_pe - (sm_shifted==sm_shift_back); // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
+                mm = sm_shifted;
                 fix_z_vis = 1;
             end
         end
@@ -101,7 +107,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                 if (which_nx == 0) 
                 begin
                     me = sum_pe - (~|sm[END_BITS+19:END_BITS]); // *not every time that z=1 do you need to subtract(ze!=5'd1) ? sum_pe - subtract_1 : sum_pe; // (~|(sm[19+END_BITS:0])); // subtract one bit if z was much smaller, sm is big
-                    mm = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                    mm = sm_shifted;
                     fix_z_vis = 0;
                     // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)] - 1'b1;
                 end
@@ -109,61 +115,31 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                 else if (which_nx == 1) // this means that product was smaller than z
                 begin
                     me = ze - 1'b1;
-                    mm =  { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
+                    mm = zm_shifted;
                     fix_z_vis = 1;
                     // mm_part = zm;
                 end
 
                 else
                 begin
-                    // if (big_z) begin
-                    //     me = ze - (~|zm);
-                    //     mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-                    //     fix_z_vis = 1;
-                    // end
-                    // else begin
                         me = sum_pe;
-                        mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                        mm = sm_shifted;
                         fix_z_vis = 0;
-                    // end
-                    // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
                 end
         end
 
         else if (m_shift[7])
         begin
-            // if (shouldve_been_zero) begin
-            //     me = ze + (~m_shift+1'b1+8'b00001111);
-            //     mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
-            //     fix_z_vis=0;
-            // end
-            // else begin
-                me = sum_pe[4:0];
-                mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                me = sum_pe[4:0] - subtract_1;
+                mm = sm_shifted;
                 fix_z_vis = 0;
-            // end
-            // mm_part = fin_mm; // [(END_BITS+19):(END_BITS+10)];
         end
 
         else
         begin
-            // if (big_z) begin
-            //     if (shouldve_been_zero) begin
-            //         me = ze;
-            //         mm = sm;
-            //         fix_z_vis = 0;
-            //     end else begin
-            //         me = ze;
-            //         mm = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-            //         fix_z_vis = 1;
-            //     end
-            // end
-            // else begin
                 me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
-                mm = (m_shift[7]) ? (sm >>> (pos_m_shift)) : sm <<< (m_shift);
+                mm = sm_shifted;
                 fix_z_vis = 0;
-            // end
-            // mm_part = fin_mm; //[(END_BITS+19):(END_BITS+10)];
         end
     end
     // if which_nx is 0, pm is greater than am
