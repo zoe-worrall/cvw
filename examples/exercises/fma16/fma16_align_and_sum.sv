@@ -41,7 +41,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     // bit adjustment variables
     logic product_greater; // if the product is greater than am
     logic [5:0] diff_pe_ze; // Used to correct a_cnt being the wrong size
-    logic [6:0] pot_acnt; // The number of bits am is shifted to be added with pm
+    logic [6:0] am_shift; // The number of bits am is shifted to be added with pm
     logic [7:0] shift_amt; // Used if z is the solution to correct for odd magnitude behavior
     logic [7:0] pos_m_shift; // Positive version of m_shift in the case that m_shift is negative
     logic [7:0] actual_difference; // The difference between pe and ze - what a_cnt should've been
@@ -55,7 +55,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     assign zm_bf_shift = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
 
     /// Zm Changes
-    assign am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : (big_z) ? (z_is_solution) ? zm_bf_shift : (zm_bf_shift << shift_amt) : zm_bf_shift >> pot_acnt; //(big_z) ? (zm_bf_shift << priority_encode_zero) : (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
+    assign am = (am_shift[6]) ? zm_bf_shift << ( ~am_shift + 1'b1  ) : (big_z) ? (z_is_solution) ? zm_bf_shift : (zm_bf_shift << shift_amt) : zm_bf_shift >> am_shift; //(big_z) ? (zm_bf_shift << priority_encode_zero) : (am_shift[6]) ? zm_bf_shift << ( ~am_shift + 1'b1  ) : zm_bf_shift >> am_shift;
     assign pm = (x_zero | y_zero | z_is_solution) ? '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
     
     assign ms = (product_greater) ? ps : zs;
@@ -75,10 +75,10 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     fma16_sub_one #(VEC_SIZE, END_BITS) sub_one(.ps, .zs, .pe, .ze, .diff_pe_ze, .big_z, .z_is_solution, .zm, .x_zero, .y_zero, .z_zero, .am, .sm, .pm, .subtract_1);
         
     // sum am and pm together into sm
-    fma16_sum #(VEC_SIZE, END_BITS) sum(.pm, .am, .a_cnt(pot_acnt), .big_z, .diff_sign(~z_zero & (zs ^ ps)), .no_product, .z_zero, .sm); // Calculates the sum of the product and z mantissas
+    fma16_sum #(VEC_SIZE, END_BITS) sum(.pm, .am, .a_cnt(am_shift), .big_z, .diff_sign(~z_zero & (zs ^ ps)), .no_product, .z_zero, .sm); // Calculates the sum of the product and z mantissas
 
     // determine how much to shift the mantissa in order to get the leading 1
-    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .big_z, .a_cnt(pot_acnt), .one_less_mshift, .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
+    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .big_z, .a_cnt(am_shift), .one_less_mshift, .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
 
 
 
@@ -116,12 +116,12 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     end
 
     assign diff_pe_ze = (pe - ze);                                              // Used to compute shifts in some places to account for pe being wrong size
-    assign pot_acnt = pe-{1'b0,ze};                                             // The amount that am is shifted by
+    assign am_shift = pe-{1'b0,ze};                                             // The amount that am is shifted by
     assign no_product =  (diff_pe_ze < -7'd23) | (diff_pe_ze > 7'd23);          // Assigning no_product (used to determine if product is zero/subnormal)
-    assign big_z = (~pot_acnt[6] & pe[5] & (pe!=-6'd13));                       // If ze is so big that it would cause pe to go from negative to positive 
+    assign big_z = (~am_shift[6] & pe[5] & (pe!=-6'd13));                       // If ze is so big that it would cause pe to go from negative to positive 
     assign actual_difference = {3'b0, xe} + {3'b0, ye} - 8'd15 - {3'b0, ze};    // This should have been what a_cnt was, and is used to rectify differences
-    assign z_is_solution = (big_z & (~actual_difference + 1'b1)>(8'd11));       // Determines if z actually causes pe to wrap around the block
     assign shift_amt = (~actual_difference+1'b1);                               // The amount of shift if z is a solution and there's a weird magnitude difference
+    assign z_is_solution = (big_z & (~actual_difference + 1'b1)>(8'd11));       // Determines if z actually causes pe to wrap around the block
 
     // If the product is greater than the added value: used to determine ms
     assign product_greater = (pm==am)?1:(am>pm)?0:(am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1; 
@@ -134,26 +134,26 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
     // Z is Visible to the Adder
     always_comb begin
-        if      (pot_acnt[6])  z_visible = 1'b0;
-        else if (pot_acnt==11) z_visible = |{zm_bf_shift[END_BITS+10:0]}; // all bits before this have to be 0
-        else if (pot_acnt==12) z_visible = |{zm_bf_shift[END_BITS+11:0]};
-        else if (pot_acnt==13) z_visible = |{zm_bf_shift[END_BITS+12:0]};
-        else if (pot_acnt==14) z_visible = |{zm_bf_shift[END_BITS+13:0]};
-        else if (pot_acnt==15) z_visible = |{zm_bf_shift[END_BITS+14:0]};
-        else if (pot_acnt==16) z_visible = |{zm_bf_shift[END_BITS+15:0]};
-        else if (pot_acnt==17) z_visible = |{zm_bf_shift[END_BITS+16:0]};
-        else if (pot_acnt==18) z_visible = |{zm_bf_shift[END_BITS+17:0]};
-        else if (pot_acnt==19) z_visible = |{zm_bf_shift[END_BITS+18:0]};
-        else if (pot_acnt==20) z_visible = |{zm_bf_shift[END_BITS+19:0]};
-        else if (pot_acnt==21) z_visible = |{zm_bf_shift[END_BITS+20:0]};
-        else if (pot_acnt==22) z_visible = |{zm_bf_shift[END_BITS+21:0]};
-        else if (pot_acnt==23) z_visible = |{zm_bf_shift[END_BITS+22:0]};
-        else if (pot_acnt==24) z_visible = |{zm_bf_shift[END_BITS+22:0]};
-        else if (pot_acnt==25) z_visible = |{zm_bf_shift[END_BITS+23:0]};
-        else if (pot_acnt==26) z_visible = |{zm_bf_shift[END_BITS+24:0]};
-        else if (pot_acnt==27) z_visible = |{zm_bf_shift[END_BITS+25:0]};
-        else if (pot_acnt==28) z_visible = |{zm_bf_shift[END_BITS+26:0]};
-        else if (pot_acnt==29) z_visible = |{zm_bf_shift[END_BITS+27:0]};
+        if      (am_shift[6])  z_visible = 1'b0;
+        else if (am_shift==11) z_visible = |{zm_bf_shift[END_BITS+10:0]}; // all bits before this have to be 0
+        else if (am_shift==12) z_visible = |{zm_bf_shift[END_BITS+11:0]};
+        else if (am_shift==13) z_visible = |{zm_bf_shift[END_BITS+12:0]};
+        else if (am_shift==14) z_visible = |{zm_bf_shift[END_BITS+13:0]};
+        else if (am_shift==15) z_visible = |{zm_bf_shift[END_BITS+14:0]};
+        else if (am_shift==16) z_visible = |{zm_bf_shift[END_BITS+15:0]};
+        else if (am_shift==17) z_visible = |{zm_bf_shift[END_BITS+16:0]};
+        else if (am_shift==18) z_visible = |{zm_bf_shift[END_BITS+17:0]};
+        else if (am_shift==19) z_visible = |{zm_bf_shift[END_BITS+18:0]};
+        else if (am_shift==20) z_visible = |{zm_bf_shift[END_BITS+19:0]};
+        else if (am_shift==21) z_visible = |{zm_bf_shift[END_BITS+20:0]};
+        else if (am_shift==22) z_visible = |{zm_bf_shift[END_BITS+21:0]};
+        else if (am_shift==23) z_visible = |{zm_bf_shift[END_BITS+22:0]};
+        else if (am_shift==24) z_visible = |{zm_bf_shift[END_BITS+22:0]};
+        else if (am_shift==25) z_visible = |{zm_bf_shift[END_BITS+23:0]};
+        else if (am_shift==26) z_visible = |{zm_bf_shift[END_BITS+24:0]};
+        else if (am_shift==27) z_visible = |{zm_bf_shift[END_BITS+25:0]};
+        else if (am_shift==28) z_visible = |{zm_bf_shift[END_BITS+26:0]};
+        else if (am_shift==29) z_visible = |{zm_bf_shift[END_BITS+27:0]};
         else                   z_visible = 1'b0; //  z_visible = ((ze!=0) | |zm);
     end
 
