@@ -16,7 +16,7 @@ module fma16_sum #(parameter VEC_SIZE, parameter END_BITS) (
         input logic                 no_product, // whether the product is zero
         input logic                 z_zero, // whether z is zero
 
-        input  logic                big_z,
+        input  logic                big_z, // whether or not the z is so big that the product is dwarfed
 
         output logic [VEC_SIZE:0]   sm // the sum of the product and z mantissas
     );

@@ -78,7 +78,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
     fma16_sum #(VEC_SIZE, END_BITS) sum(.pm, .am, .a_cnt(am_shift), .big_z, .diff_sign(~z_zero & (zs ^ ps)), .no_product, .z_zero, .sm); // Calculates the sum of the product and z mantissas
 
     // determine how much to shift the mantissa in order to get the leading 1
-    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .big_z, .a_cnt(am_shift), .one_less_mshift, .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
+    fma16_mshift_find #(VEC_SIZE, END_BITS) mshifter(.sm, .big_z, .a_cnt(am_shift), .one_less_mshift, .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
 
 
 

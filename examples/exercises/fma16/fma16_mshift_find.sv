@@ -7,7 +7,7 @@
     April 22, 2025
 */
 
-module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
+module fma16_mshift_find #(parameter VEC_SIZE, parameter END_BITS) (
         input  logic [VEC_SIZE:0] sm, // centered product mantissa
         input  logic [6:0]        a_cnt, // exponent difference between pe and ze for adjusting
         input  logic              diff_sign, // sign if product and z are diff. signs
