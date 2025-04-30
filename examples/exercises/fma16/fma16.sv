@@ -92,7 +92,7 @@ module fma16(
     logic [5:0] a_cnt;   // the exponent difference between pe and ze
     logic [7:0] m_shift; // additional adjustment atop the adjustment of ze and pe
 
-    logic [15:0] mult; // Potential final result if no NaN, Zero, or Infinity issues
+    logic [15:0] fma_result; // Potential final result if no NaN, Zero, or Infinity issues
    
     //  OpCtrl:
     //    Fma: {not multiply-add?, negate prod?, negate Z?}
@@ -154,11 +154,11 @@ module fma16(
                                                         .a_cnt,   // exponent difference
                                                         .m_shift, // shift amount for leading 1's
 
-                                                        .which_nx, .subtract_1, .ms,
-                                                        .z_visible, .prod_visible,
+                                                        .which_nx, .subtract_1, .ms, // flags for controlling post product
+                                                        .z_visible, .prod_visible, // flags showing whether z/product is visible in solution
 
-                                                        .big_z, .z_is_solution,
-                                                        .one_less_mshift,
+                                                        .big_z, .z_is_solution, // used for correcting overshift (not enough bits in pe)
+                                                        .one_less_mshift, // used for correcting specific specific overshift case
                                                         
                                                         .sm // which nx to use and the difference between the exponents
     );
@@ -183,7 +183,7 @@ module fma16(
     // Check to see (if inexact) how rounding might need to work
     logic error;
     logic raise_flag;
-    logic block_nx;
+    logic fma_nx;
     logic nv, of, uf, nx; // invalid, overflow, underflow, inexact
 
     fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
@@ -200,8 +200,8 @@ module fma16(
                                                      
                                                      // outputs (final result without taking errors into account)
                                                     .me, // .fin_mm(mm),
-                                                    .nx(block_nx),
-                                                    .mult // the exponent and mantissa of the result
+                                                    .fma_nx,
+                                                    .fma_result // the exponent and mantissa of the result
     );
 
 
@@ -210,8 +210,6 @@ module fma16(
     assign of = 1'b0; // me[5] ? 1'b1 : 1'b0;
 
     // Invalid if any input is NaN
-    // assign nv = 1'b0; //((result==nan_val) & ~(x_zero&y_zero)) | (((x_zero|y_zero) & z_inf) & (x^y)) | ((x_zero|y_zero) & z_inf & xs & ys); //((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
-
     assign uf = 0;
 
 
@@ -222,16 +220,16 @@ module fma16(
     // 7e00 = 0_11111_100000000000 - NaN
     // 8000 = neg_zero
     logic nan_result;
-    assign nan_result = (mult==nan_val);
+    assign nan_result = (fma_result==nan_val);
 
     logic inf_result;
-    assign inf_result = ((mult==inf_val) | (mult==neg_inf_val));
+    assign inf_result = ((fma_result==inf_val) | (fma_result==neg_inf_val));
 
     logic max_result;
-    assign max_result = (mult[14:10]==5'b11111);
+    assign max_result = (fma_result[14:10]==5'b11111);
 
     logic zero_result;
-    assign zero_result = (mult[14:0]=='0);
+    assign zero_result = (fma_result[14:0]=='0);
 
     logic max_input;
     assign max_input = (x==max_val) | (x==max_neg_val);
@@ -247,7 +245,7 @@ module fma16(
 
         if (x_nan|y_nan|z_nan|x_inf|y_inf|z_inf|x_zero|y_zero|z_zero|max_result|zero_result) begin
             fix_flag = 1;
-            fix_result = mult;
+            fix_result = fma_result;
             
             
             if (x_inf|y_inf|z_inf|max_result) begin
@@ -330,16 +328,14 @@ module fma16(
         end
     end
 
-    assign nx = (fix_flag) ? f_nx : block_nx;
-    // assign nv = ((result==nan_val) & ~(x_zero&y_zero)) | (((x_zero|y_zero) & z_inf) & (x^y)) | ((x_zero|y_zero) & z_inf & xs & ys); //((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
-
+    assign nx = (fix_flag) ? f_nx : fma_nx;
     assign nv = (fix_flag) ? f_nv : 0;
 
     // Assigning the flags of the system; these are used to determine if the result is valid or not
     assign flags = {nv, of, uf, nx}; // { invalid, overflow, underflow, inexact }
 
-    // Assign result based on the NaN, Zero, and Infinity values of the system; apply these rules before assigning mult
-    assign result = (fix_flag) ? fix_result : mult; //result = (x_zero & y_zero & z_zero) ? ((zs&xs)^(zs&ys)) ? neg_zero : '0 : ((x_zero|y_zero) & z_inf) ? (x^y) ? z : nan_val : (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | z_nan)) | (y_zero & (x_inf | z_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;
+    // Assign result based on the NaN, Zero, and Infinity values of the system; apply these rules before assigning fma_result
+    assign result = (fix_flag) ? fix_result : fma_result; //result = (x_zero & y_zero & z_zero) ? ((zs&xs)^(zs&ys)) ? neg_zero : '0 : ((x_zero|y_zero) & z_inf) ? (x^y) ? z : nan_val : (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | z_nan)) | (y_zero & (x_inf | z_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (fma_result[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  fma_result; // (zs & ~z_zero & (fma_result == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : fma_result;
     
 
 

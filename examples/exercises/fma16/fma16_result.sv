@@ -32,8 +32,8 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic [1:0]        roundmode, // the rounding mode of the system
 
     output logic [4:0]        me, // the exponent of the result
-    output logic [15:0]       mult, // the final result of the fma16 calculation
-    output logic              nx
+    output logic [15:0]       fma_result, // the final result of the fma16 calculation
+    output logic              fma_nx
     );
 
     // Variables used for calculations
@@ -172,8 +172,8 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     // Calculates Rounding
     ///////////////////////////////////////////////////////////////////////////////
 
-    assign mult = {ms, me, mm_rounded}; 
-    assign nx =   nx_bits | prod_visible | (z_visible ^ fix_z_vis) | (big_z & z_is_solution & |mid_pm[19:0]);
+    assign fma_result = {ms, me, mm_rounded}; 
+    assign fma_nx =   nx_bits | prod_visible | (z_visible ^ fix_z_vis) | (big_z & z_is_solution & |mid_pm[19:0]);
 
 
     fma16_round #(VEC_SIZE, END_BITS) rounder(.ms, .mm, .roundmode, .subtract_1, .mm_rounded, .nx_bits);
