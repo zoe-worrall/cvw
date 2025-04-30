@@ -7,7 +7,7 @@
     April 22, 2025
 */
 
-module fma16_pcalc(
+module fma16_product_components(
     input  logic        xs, ys,  // the signs of x, y
     input  logic [4:0]  xe, ye,  // the exponents of x, y
     input  logic [9:0]  xm, ym,  // the mantissa of x, y

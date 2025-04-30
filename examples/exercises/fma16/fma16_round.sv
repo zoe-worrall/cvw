@@ -34,6 +34,8 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
     assign trunc = mm[19+END_BITS:10+END_BITS] ; // the adjusted sum of the product and z mantissas
     assign {up_the_octave_go_for_it, round} = trunc + 1'b1;
 
+    ///////////////////////////////////////
+    // SEPARATE BITS
     // Short Combination block to check all cases of round mode
     always_comb begin
         case(roundmode)

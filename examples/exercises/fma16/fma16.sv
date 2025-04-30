@@ -131,7 +131,7 @@ module fma16(
     //      - Calculates the sign, exponent, and mantissa of the product
     ///////////////////////////////////////////////////////////////////////////////
 
-    fma16_pcalc calculate_prod( .xs, .ys, .xe, .ye, .xm, .ym,  // input: x and y sign, exponent, and mantissa
+    fma16_product_components calculate_prod( .xs, .ys, .xe, .ye, .xm, .ym,  // input: x and y sign, exponent, and mantissa
                                 .x_zero, .y_zero,  // input: x and y are zero
                                 
                                 // outputs (products)

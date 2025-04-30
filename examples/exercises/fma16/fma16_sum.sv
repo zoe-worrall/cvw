@@ -22,32 +22,36 @@ module fma16_sum #(parameter VEC_SIZE, parameter END_BITS) (
     );
 
     // Internal Logic
-    logic [VEC_SIZE:0] diff_sum; // the difference between the product and z mantissas
+    logic [VEC_SIZE:0] diff_sum, pos_sum; // the difference between the product and z mantissas
     logic [6:0] a_cnt_pos; // the positive value of a_cnt
 
     assign a_cnt_pos = (~a_cnt + 1'b1); // the inverted value of a_cnt (used if a_cnt is negative)
-    assign diff_sum = (pm > am) ? (pm - am) : (am - pm);
+    assign diff_sum = (pm > am) ? (pm - am) : (am - pm); // the difference between am and pm
+    assign pos_sum = (am + pm); // the sum of am and pm
   
     always_comb begin
-        if (big_z)  begin
+
+        // if the z is bigger than the product, then we need to either add or subtract values
+        if (big_z)  
+        begin
             if (~diff_sign) begin
-                sm = (z_zero) ? pm : (pm + am);
+                sm = (z_zero) ? pm : pos_sum;
             end else begin
-                sm = (z_zero) ? pm : (am - pm);
+                sm = (z_zero) ? pm : diff_sum;
             end
-        end else begin
+        end 
+        
+        // Otherwise, separate into add and subtract
+        else begin
             if (diff_sign)
                 if (a_cnt[6] & (a_cnt != -6'd2) & (a_cnt != -6'd1)) 
                     sm = diff_sum;
                 else  
                     sm = (z_zero) ? (pm) : diff_sum;
-            else sm = (z_zero) ? (no_product) ? (pm - am) : pm : (am + pm);
+            else sm = (z_zero) ? (no_product) ? diff_sum : pm : pos_sum;
         end
+
     end
-
-    // assign sm = (pm==am) ? '0 : (diff_sign) ? ((z_zero) ? (pm) : (diff_sum)) : ((z_zero) ? (no_product) ? (pm - am) : pm : (am + pm));
-
-
 
 endmodule
 

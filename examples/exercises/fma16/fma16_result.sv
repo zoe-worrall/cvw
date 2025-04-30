@@ -6,31 +6,34 @@
     April 23, 2025
 */
 module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
-    input  logic [VEC_SIZE:0] sm,   // the sum of the product and z mantissas
-
-    input  logic              ms,   // the sign of the result
-    input  logic [7:0]        m_shift,  // an additional shift value to correctly set up the final result's me
-
-    input  logic [1:0]        which_nx,  // used to determine if subnormal
-    input  logic              subtract_1, // used to adjust if we have to subtract a small number from a bigger one
-    input  logic              z_visible,
-    input  logic              prod_visible,
-
-    input  logic              big_z, z_is_solution, // if z is so big that it dwarfs the product, and also a check to make sure that -pe != ze (wrong size for pe)
-    input  logic              one_less_mshift,
     
     input  logic              zs, // sign of z
     input  logic [4:0]        ze, // exponent of z
     input  logic [9:0]        zm, // mantissa of z
     input  logic              ps, // sign of the product
     input  logic [5:0]        pe, // exponent of the product
+
+    input  logic [VEC_SIZE:0] sm,   // the sum of the product and z mantissas
+
+    input  logic              ms,   // the sign of the result
     input  logic [21:0]       mid_pm, // mantissa of the product
+
+    input  logic [7:0]        m_shift,  // an additional shift value to correctly set up the final result's me
+    input  logic              subtract_1, // used to adjust if we have to subtract a small number from a bigger one
+
+
+    // inputs that correct the pe being too small
+    input  logic              big_z, z_is_solution, // if z is so big that it dwarfs the product, and also a check to make sure that -pe != ze (wrong size for pe)
+    input  logic              one_less_mshift, // adjustments for the mshift
+    input  logic [1:0]        which_nx,  // used to determine if subnormal
+    input  logic              z_visible,
+    input  logic              prod_visible,
 
     input  logic [1:0]        roundmode, // the rounding mode of the system
 
     output logic [4:0]        me, // the exponent of the result
-    output logic              nx,
-    output logic [15:0]       mult // the final result of the fma16 calculation
+    output logic [15:0]       mult, // the final result of the fma16 calculation
+    output logic              nx
     );
 
     // Variables used for calculations
@@ -59,10 +62,13 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     //            Making this expand to broader regions, as I have a fear that this was case specific.
     //     
     // Used to find either the sum or the difference of the product and z mantissas; we want to add a positive shift
-    assign  prior_sum_pe = { {2{pe[5]}}, pe} + pos_m_shift; 
+    assign prior_sum_pe  = { {2{pe[5]}}, pe} + pos_m_shift; 
     assign prior_diff_pe = { {2{pe[5]}}, pe} - m_shift;
-    assign      sum_pe   = (|prior_sum_pe) ? prior_sum_pe : 5'b00001; // adding the additional conversions based off of however big of a shift we have
-    assign      dif_pe   = (|prior_diff_pe) ? prior_sum_pe : 5'b00001;
+    assign sum_pe        = (|prior_sum_pe) ? prior_sum_pe : 5'b00001; // adding the additional conversions based off of however big of a shift we have
+    assign dif_pe        = (|prior_diff_pe) ? prior_sum_pe : 5'b00001;
+
+
+    // Shifted by mshifta
     assign sm_shifted    = (m_shift[7]) ?  (sm >>> (pos_m_shift)) : sm <<< (m_shift);
     assign sm_shift_back = (m_shift[7]) ? (sm_shifted <<< (pos_m_shift)) : (sm_shifted >>> m_shift);
     assign zm_shifted    = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
@@ -137,9 +143,9 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                 // this means that z is potentially inexact, and will be further configured in round
                 else
                 begin
-                        me = sum_pe;
-                        mm = sm_shifted;
-                        fix_z_vis = 0;
+                    me = sum_pe;
+                    mm = sm_shifted;
+                    fix_z_vis = 0;
                 end
 
         end
