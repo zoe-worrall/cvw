@@ -84,6 +84,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
             fix_z_vis = 0;
         end
 
+        // this occurs when xe and ye are both really, really small. That means that, normally, some value is lost
         else if (pe == -6'd13)
         begin
             me = (ze!=5'd1) ? ze - (~|zm & subtract_1) : ze; //((subtract_1 | ms) & ~|zm); // ze - ((subtract_1 | ms) & ~|zm);  // fin_mm[(END_BITS+19):(END_BITS+10)]
@@ -117,7 +118,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
                 begin
                     me = ze - 1'b1;
                     mm = zm_shifted;
-                    fix_z_vis = 1;
+                    fix_z_vis = 0;
                     // mm_part = zm;
                 end
 

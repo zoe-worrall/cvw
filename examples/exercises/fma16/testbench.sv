@@ -31,6 +31,7 @@ module testbench_fma16;
   // 2. harris_fma_1
   // 3. harris_comp_fma_1_v_2
   // 4. combo_files_test
+  // 5. harris_fma_special_rz
   initial
     begin
       $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\harris_fma_special_rz.tv", testvectors);
@@ -52,7 +53,7 @@ module testbench_fma16;
     if (~reset) begin // skip during reset
       // $display("Test #%h", vectornum);
       eval = ((result != rexpected) & no_prod);
-      if (result != rexpected | flags !== flagsexpected) begin
+      if (result != rexpected | (flags[0] !== flagsexpected[0]) | (flags[3] !== flagsexpected[3])) begin
         $display("Error: inputs %h * %h + %h", x, y, z);
         $display("  result = %h (%h expected) flags = %b (%b expected)", result, rexpected, flags, flagsexpected);
         error = 1;

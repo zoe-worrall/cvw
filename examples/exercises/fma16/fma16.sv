@@ -33,8 +33,19 @@ module fma16(
     // Parameters for the size of vectors within the system
     parameter WIDTH = 64;   // the size of a the vector used when summing/multiplying
     parameter ENDING_ZEROS = 2; // the number of extra zeros at the end that aid in rounding
-    parameter nan_val = 16'b0_111_11_1000000000;
+
+    parameter inf_val = 16'b0111_1100_0000_0000;
+    parameter neg_inf_val = 16'b1111_1100_0000_0000;
+
+    parameter nan_val = 16'b0_11111_10_0000_0000;
     parameter neg_zero = 16'b1_00000_0000000000;
+
+    parameter min_val = 16'b0_00001_0000000000; // e-14 * 1.0
+    parameter min_neg_val = 16'b1_00001_0000000000;
+
+    parameter max_val = 16'b0_11110_00_0000_0000;
+    parameter max_neg_val = 16'b1_11110_00_0000_0000;
+
 
     // Components of x, y, and z
     logic         xs, ys, zs; // the signs of x, y, z
@@ -170,6 +181,7 @@ module fma16(
     // Check to see (if inexact) how rounding might need to work
     logic error;
     logic raise_flag;
+    logic block_nx;
     logic nv, of, uf, nx; // invalid, overflow, underflow, inexact
 
     fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
@@ -184,7 +196,7 @@ module fma16(
                                                      
                                                      // outputs (final result without taking errors into account)
                                                     .me, // .fin_mm(mm),
-                                                    .nx,
+                                                    .nx(block_nx),
                                                     .mult // the exponent and mantissa of the result
     );
 
@@ -193,42 +205,85 @@ module fma16(
     // Overflow
     assign of = 1'b0; // me[5] ? 1'b1 : 1'b0;
 
-    // inexact if the result is not exact to the actual value
-    // assign nx = 1'b1; //(mm == 0) ? 1'b0 : ((mm - { {(WIDTH-1-10-10-ENDING_ZEROS){1'b0}}, 1'b1, mult[9:0], (10+ENDING_ZEROS)'(1'b0) }) != 0) ? 1'b1 : 1'b0; // if data is left out of mm_part, this 
-    
     // Invalid if any input is NaN
-    assign nv = ((result==nan_val) & ~(x_zero&y_zero)) | (((x_zero|y_zero) & z_inf) & (x^y)) | ((x_zero|y_zero) & z_inf & xs & ys); //((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
+    // assign nv = 1'b0; //((result==nan_val) & ~(x_zero&y_zero)) | (((x_zero|y_zero) & z_inf) & (x^y)) | ((x_zero|y_zero) & z_inf & xs & ys); //((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
 
     assign uf = 0;
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Assigning the flags of the system; these are used to determine if the result is valid or not
-    assign flags = {nv, of, uf, nx}; // { invalid, overflow, underflow, inexact }
 
-    // 7fff = 0_11111_1111111111111
-    // 
+    // 7fff = 0_11111_111111111111 - Inf
+    // 7e00 = 0_11111_100000000000 - NaN
+    // 8000 = neg_zero
+    logic nan_result;
+    assign nan_result = (mult==nan_val);
+
+    logic inf_result;
+    assign inf_result = ((mult==inf_val) | (mult==neg_inf_val));
+
+    logic max_result;
+    assign max_result = (mult[14:10]==5'b11111);
+
+    logic max_input;
+    assign max_input = (x==max_val) | (x==max_neg_val);
 
     logic [15:0] fix_result;
     logic fix_flag;
+    logic f_nx;
+    logic f_nv;
     always_comb begin
         fix_flag = 0;
-        if (x_zero & y_zero & z_zero)
-            if ((zs&xs) ^ (zs&ys)) begin fix_result = neg_zero; fix_flag = 1; end
-            else                   begin fix_result = '0; fix_flag = 1; end
-        else
-            if ((x_zero|y_zero) & z_inf)
-                if (x^y)           begin fix_result = z; fix_flag = 1; end
-                else               begin fix_result = nan_val; fix_flag = 1; end
-            else if (x_nan | y_nan | z_nan)
-                                   begin fix_result = nan_val; fix_flag = 1; end
-            else if (x_zero & (y_inf | z_nan) | (y_zero) & (x_inf | z_nan))
-                                    begin fix_result = nan_val; fix_flag = 1; end
-            else if (x_zero | y_zero)
-                if (z_zero)         begin fix_result = {((xs^ys) & zs), 15'b0}; fix_flag = 1; end
-        
+        f_nx = 0;
+        f_nv = 0;
+
+        if (x_nan|y_nan|z_nan|x_inf|y_inf|z_inf|x_zero|y_zero|z_zero|max_result) begin
+            fix_flag = 1;
+            if (x_inf|y_inf|z_inf|max_result) begin
+                if (z_inf|z_nan) begin
+                    if (z_inf)         begin fix_result = z; end
+                    else               begin 
+                        if (z[8:0]==9'b1_1111_1111 | z[8:0]==9'b0_0000_0000) 
+                                       begin fix_result = nan_val; f_nv = 0; end
+                        else
+                                       begin fix_result = nan_val; f_nv = 1; end
+                    end
+                end
+                else if (max_result)   begin fix_result = {ms, max_val[14:0]}; f_nv = 1; end
+                else                   begin fix_result = inf_val;  end
+            end else if (x_zero & y_zero & z_zero) begin
+                if ((zs&xs) ^ (zs&ys)) begin fix_result = neg_zero; end
+                else                   begin fix_result = '0; end
+            end else if ((x_zero|y_zero) & z_inf) begin
+                if (x_zero & y_zero)
+                                begin fix_result = nan_val; end
+                else
+                    if (x^y)       begin fix_result = z; end
+                    else if (xs)   begin fix_result = nan_val; end
+                    else           begin fix_result = nan_val; end
+            end else if (x_nan | y_nan | z_nan) 
+                                    begin fix_result = nan_val;  end
+                else if (x_zero & (y_inf | z_nan) | (y_zero) & (x_inf | z_nan))
+                                    begin fix_result = nan_val; end
+                else if (x_zero | y_zero) begin
+                    if (z_zero)        begin fix_result = {((xs^ys) & zs), 15'b0}; end
+                    else               begin fix_flag = 0; end
+            end else if (max_result)            
+                                       begin fix_result = max_val; f_nv = 1; end
+            
+            else                       begin fix_flag = 0; end
+
+        end
     end
+
+    assign nx = (fix_flag) ? f_nx : block_nx;
+    // assign nv = ((result==nan_val) & ~(x_zero&y_zero)) | (((x_zero|y_zero) & z_inf) & (x^y)) | ((x_zero|y_zero) & z_inf & xs & ys); //((x_zero & y_inf) | (y_zero & x_inf)); // | ((mult == nan_val) & (x!=16'h7fff) & (y!=16'h7fff)));
+
+    assign nv = (fix_flag) ? f_nv : 0;
+
+    // Assigning the flags of the system; these are used to determine if the result is valid or not
+    assign flags = {nv, of, uf, nx}; // { invalid, overflow, underflow, inexact }
 
     // Assign result based on the NaN, Zero, and Infinity values of the system; apply these rules before assigning mult
     assign result = (fix_flag) ? fix_result : mult; //result = (x_zero & y_zero & z_zero) ? ((zs&xs)^(zs&ys)) ? neg_zero : '0 : ((x_zero|y_zero) & z_inf) ? (x^y) ? z : nan_val : (x_nan | y_nan | z_nan) ? nan_val : ((x_zero & (y_inf | z_nan)) | (y_zero & (x_inf | z_nan))) ? nan_val : (x_zero | y_zero) ? (z[14:0]==0) ? {((xs^ys) & zs), 15'b0} : z : (mult[14:0]==0) ? {((xs^ys) & zs), 15'b0}  :  mult; // (zs & ~z_zero & (mult == 16'b0100_0000_0000_0000)) ? 16'b0011_1111_1111_1111 : mult;

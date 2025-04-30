@@ -20,9 +20,12 @@ module fma16_classification(
     );
 
     // parameters defined to check for zero, infinity, and NaNa
-    parameter inf_val = 16'b0_11111_0000000000;
-    parameter nan_val = 16'b0_111_11_1000000000;
+    parameter inf_val = 16'b0111_1100_0000_0000;
+    parameter neg_inf_val = 16'b1111_1100_0000_0000;
+
+    parameter nan_val = 16'b0_11111_10_0000_0000;
     parameter neg_zero = 16'b1_00000_0000000000;
+
 
     // Assigning Base Constants for Zeros, Infinities, and NaNs
     // Zeros
@@ -31,14 +34,14 @@ module fma16_classification(
     assign z_zero = ((z==0) | (z==neg_zero)) | ~add;
 
     // Infinities
-    assign x_inf = (x==16'b0_11111_0000000000);
-    assign y_inf = (y==16'b0_11111_0000000000) & mul;
-    assign z_inf = (z==16'b0_11111_0000000000) & ~add;
+    assign x_inf = ((x==inf_val) | (x==neg_inf_val));
+    assign y_inf = ((y==inf_val) | (y==neg_inf_val)) & mul;
+    assign z_inf = ((z==inf_val) | (z==neg_inf_val)) & add;
 
     // NaNs
-    assign x_nan  = ((x[15:10]==6'b111_111) | (x[15:10]==6'b011_111) & (x[9:0]!=0));
-    assign y_nan = ((y[15:10]==6'b111_111) | (y[15:10]==6'b011_111) & (y[9:0]!=0)) & mul;
-    assign z_nan = ((z[15:10]==6'b111_111) | (z[15:10]==6'b011_111) & (z[9:0]!=0)) & ~add;
+    assign x_nan = ((x[15:10]==6'b111_111) | (x[15:10]==6'b011_111) & ~x_inf);
+    assign y_nan = ((y[15:10]==6'b111_111) | (y[15:10]==6'b011_111) & ~y_inf) & mul;
+    assign z_nan = ((z[15:10]==6'b111_111) | (z[15:10]==6'b011_111) & ~z_inf) & add;
 
     // Assigning Signs, Exponents, and Mantissas for x, y, and z
     assign {xs, xe, xm} = x;
