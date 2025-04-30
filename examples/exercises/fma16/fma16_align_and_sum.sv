@@ -1,11 +1,11 @@
 /**
 	A module that finds aligns am and pm, and computes 
     the difference between exponents and the state of the product's
-    exponent (no_product) for future use
+    exponent for future use
 
     Zoe Worrall - zworrall@g.hmc.edu
     E154 System on Chip
-    April 22, 2025
+    April 30, 2025
 */
 
 module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
@@ -25,161 +25,115 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
 
     output logic [7:0]   m_shift, // additional adjustment for adjusting decimal
 
-    output logic        big_z, z_is_solution, //shouldve_been_zero,  // whether z dwarfs product or not (i.e. if z is way bigger than the product)
+    output logic        big_z, z_is_solution, // whether z dwarfs product or not (i.e. if z is way bigger than the product)
 
-    output logic [5:0]  diff_count, // the difference between ze and pe exponents
+    output logic        one_less_mshift,
+
     output logic [1:0]  which_nx,   // used to determine if subnormal
     output logic        subtract_1, z_visible, prod_visible, ms // used to adjust if z or product is subnormal and negative
     );
 
-    logic product_greater;
-
+    // Zm Is Shifted
+    logic [VEC_SIZE-1:0] zm_bf_shift;
     logic [VEC_SIZE:0] am; // aligned zm for sum
     logic [VEC_SIZE:0] pm; // aligned pm for sum
 
-    logic [5:0] diff_pe_ze;
-    logic       none_zero;
+    // bit adjustment variables
+    logic product_greater; // if the product is greater than am
+    logic [5:0] diff_pe_ze; // Used to correct a_cnt being the wrong size
+    logic [6:0] pot_acnt; // The number of bits am is shifted to be added with pm
+    logic [7:0] shift_amt; // Used if z is the solution to correct for odd magnitude behavior
+    logic [7:0] pos_m_shift; // Positive version of m_shift in the case that m_shift is negative
+    logic [7:0] actual_difference; // The difference between pe and ze - what a_cnt should've been
+    logic       no_product; // whether or not the adder can see the product when adding
+
+
+    ///////////////////////////////////////////////////////////////////////////////
+    // Major Variable Assignment
+    ///////////////////////////////////////////////////////////////////////////////
     
-    assign diff_pe_ze = (pe - ze);
+    assign zm_bf_shift = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
 
-    logic [6:0] pot_acnt;
-    assign pot_acnt = pe-{1'b0,ze}; //($signed(pe - ze) > 7'd0) ? (pe - ze) : (ze - pe);
+    /// Zm Changes
+    assign am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : (big_z) ? (z_is_solution) ? zm_bf_shift : (zm_bf_shift << shift_amt) : zm_bf_shift >> pot_acnt; //(big_z) ? (zm_bf_shift << priority_encode_zero) : (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
+    assign pm = (x_zero | y_zero | z_is_solution) ? '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
+    
+    assign ms = (product_greater) ? ps : zs;
+    assign pos_m_shift = ~m_shift + 1; 
 
 
-    logic extra;
+    ///////////////////////////////////////////////////////////////////////////////
+    // Modules
+    ///////////////////////////////////////////////////////////////////////////////
+    
+    // Modules to Determine:
+    // 1. The sum of pm and am
+    // 2. The alignment of am relative to pm
+    // 3. Whether or not we need to subtract one from the solution
 
+    // determine if 1 needs to be subtracted
+    fma16_sub_one #(VEC_SIZE, END_BITS) sub_one(.ps, .zs, .pe, .ze, .diff_pe_ze, .big_z, .z_is_solution, .zm, .x_zero, .y_zero, .z_zero, .am, .sm, .pm, .subtract_1);
+        
+    // sum am and pm together into sm
+    fma16_sum #(VEC_SIZE, END_BITS) sum(.pm, .am, .a_cnt(pot_acnt), .big_z, .diff_sign(~z_zero & (zs ^ ps)), .no_product, .z_zero, .sm); // Calculates the sum of the product and z mantissas
+
+    // determine how much to shift the mantissa in order to get the leading 1
+    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .big_z, .a_cnt(pot_acnt), .one_less_mshift, .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
+
+
+
+    ////////////////////////////// BIT WRAPPING ADJUSTMENT ///////////////////////////////
+    //
+    // I made a mistake with bit sizing. This means that a_cnt is two bits smaller than it should
+    // be throughout most of the program. To rectify this, I have multiple binary bits that help
+    // to determine what its behavior should be.
+    //
     ///////////////////////////////////////////////////////////////////////////////
     // Adjustment Variable Calculations
     ///////////////////////////////////////////////////////////////////////////////
-    
     always_comb begin
+
         // Assigning a_cnt (relative difference between pe and ze)
         // 
         //     - if pe is smaller than ze and both are negative, then a_cnt needs to 
         //          subtract 32 from its answer due to a wrapping error
         //     - otherwise, a_cnt is just the difference between pe and ze
-        //   1_11110
         if ((pe==-6'd13) & (ze < -5'd1) & ($signed(diff_pe_ze)>$signed(20)))
             if (diff_pe_ze == 6'b110000)  a_cnt = diff_pe_ze;
             else                          a_cnt = diff_pe_ze; //{ ~diff_pe_ze[5], diff_pe_ze[4:0] };
         else                              a_cnt = diff_pe_ze;
 
-        // Assigning diff_count (overall difference between pe and ze)
-        //
-        //     - As opposed to a_cnt, diff_count is a signed value that
-        //         tells the exact difference between pe and ze
-        //
-        {extra, diff_count} = ({1'b0,pe} - {2'b00,ze});
 
-        // Assigning which_nx (which inexact)
-        //    This is used to determine what should be done if either z or the
-        //      product is too small (only applies if negative)
-        //
-        //    If zs and ps are different, and their difference is wide while
-        //       z's value is too small, small adjustments may need to be
-        //       made in post
-        //
-        //     If z is the smaller of the two, which_nx is 0
-        //     If p is the smaller of the two, which_nx is 1
-        
+        // Assigning which_nx ("which inexact")
         // if pe isn't negative, is bigger than z, if pe is greater than 15, and z isn't 0, which_nx is 0
-        if      (!pe[5] & (pe[4:0] >= ze) & (({2'b00,xe} + {2'b00,ye}) > 5'b01111) & (~z_zero))  which_nx = 0;
-
+        //     If z is the smaller of the two, which_nx is 0
         // if z is greater, that means we'll be subtracting from z
+        //     If p is the smaller of the two, which_nx is 1
+        if      (!pe[5] & (pe[4:0] >= ze) & (({2'b00,xe} + {2'b00,ye}) > 5'b01111) & (~z_zero))  which_nx = 0;
         else if ((pm!='0)  & (~z_zero))  which_nx = 1;
         else                             which_nx = 3;
+
     end
 
-    // Assigning no_product (used to determine if product is zero/subnormal)
-    //      - if either x or y is zero, then the product is zero
-    //
-    assign no_product =  (diff_pe_ze < -7'd23) | (diff_pe_ze > 7'd23); //((~x_zero) & (xe==0)) | ((~y_zero) & (ye==0)) | (pot_acnt[6]&(~(ze==0)));
+    assign diff_pe_ze = (pe - ze);                                              // Used to compute shifts in some places to account for pe being wrong size
+    assign pot_acnt = pe-{1'b0,ze};                                             // The amount that am is shifted by
+    assign no_product =  (diff_pe_ze < -7'd23) | (diff_pe_ze > 7'd23);          // Assigning no_product (used to determine if product is zero/subnormal)
+    assign big_z = (~pot_acnt[6] & pe[5] & (pe!=-6'd13));                       // If ze is so big that it would cause pe to go from negative to positive 
+    assign actual_difference = {3'b0, xe} + {3'b0, ye} - 8'd15 - {3'b0, ze};    // This should have been what a_cnt was, and is used to rectify differences
+    assign z_is_solution = (big_z & (~actual_difference + 1'b1)>(8'd11));       // Determines if z actually causes pe to wrap around the block
+    assign shift_amt = (~actual_difference+1'b1);                               // The amount of shift if z is a solution and there's a weird magnitude difference
+
+    // If the product is greater than the added value: used to determine ms
+    assign product_greater = (pm==am)?1:(am>pm)?0:(am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1; 
+
+    ////////////////////////////////////////////////////////////////////////////////////
 
 
-    // a_cnt_pos is only positive if product is greater than ze  ~pot_acnt[6] & |pot_acnt[5:4
-    //
-    //               v  if there was no shift in the zm_bf, that means that we didn't lose any bits and we can just compare which one's bigger
-    //                                                    
-    //                                                    v -13 is just a weird number; if it's there, that means that the system's predominated by z
-    //
-    //                                                                        v check to see if z was moved off of the page - if it wasn't check which of pm or am is bigger
-    //
-    //                                                                                                            v if this is a negative value, ps takes precedence
-    //
-    //                                                                                                                                      v  if pe is bigger than ze, pe was "negative" when computed meaning that x and y are too small
-    //
-    //                                                                                                                                                                    v this still has the potential to be wrong; there may be a case where p was way too small
-    // assign ms = (pot_acnt==0) ? ((pm>am) ? ps : zs) : (pe==-6'd13) ? zs : (z_visible) ? (pm>am) ? ps : zs : (~pot_acnt[6]) ? ps : (pm>am) ? ps : zs;  // calculating final sign of result
+    ////////////////////////////// Priority Encoders ///////////////////////////////
+    // These are used to determine whether or not you can see z or the multiplier
 
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Addition
-    ///////////////////////////////////////////////////////////////////////////////
-    
-
-    // logic big_z;
-    assign big_z = (~pot_acnt[6] & pe[5] & (pe!=-6'd13)); // if z is actually bigger than p, but not caught by the acnt
-
-    logic [VEC_SIZE-1:0] zm_bf_shift;
-    assign zm_bf_shift = { {(VEC_SIZE-END_BITS-10-10){1'b0}}, (ze!=0), zm, {(END_BITS+10)'(1'b0)} };
-
-
-    // done to account for weird subtraction
-    // logic shouldve_been_zero;
-    // basically, pe-ze actually has the potential to be 13 under what is should be, so it could "overlaod" if subtracting a positive
-    //      ze value such that it becomes completely positive
-    // examples:
-    //               pe           |             ze
-    //                            |
-    //              -13           |      the system would've been shifted by ze
-    //              -12           |      the system would've been shifted by ze + 1
-    //               ...          |
-    //              -4            |      the two x/y values sum to 9. ze + 9 , basically
-
-    // logic [7:0] priority_encode_zero;
-    // parameter CASE1 = 5, CASE2 = 3;
-    // always_comb begin
-    //     if ({~pe+1'b1} < ze) begin
-    //         case (pe)
-    //             (-6'd13): priority_encode_zero = {3'b00, ze}-CASE1;
-    //             (-6'd12): priority_encode_zero = {3'b00, ze}-{CASE1-1};
-    //             (-6'd11): priority_encode_zero = {3'b00, ze}-{CASE1-2};
-    //             (-6'd10): priority_encode_zero = {3'b00, ze}-{CASE1-3};
-    //             (-6'd9): priority_encode_zero =  {3'b00, ze}-{CASE1-4};
-    //             (-6'd8): priority_encode_zero =  {3'b00, ze}+8'd0;
-    //             (-6'd7): priority_encode_zero =  {3'b00, ze}+{CASE1-4};
-    //             (-6'd6): priority_encode_zero =  {3'b00, ze}+{CASE1-3};
-    //             (-6'd5): priority_encode_zero =  {3'b00, ze}+{CASE1-2};
-    //             (-6'd4): priority_encode_zero =  {3'b00, ze}+{CASE1-1};
-    //             (-6'd3): priority_encode_zero =  {3'b00, ze}+{CASE1};
-    //             (-6'd2): priority_encode_zero =  {3'b00, ze}+{CASE1+1};
-    //             (-6'd1): priority_encode_zero =  {3'b00, ze}+{CASE1+2};
-    //             default : priority_encode_zero = 4'bxxxx;
-    //         endcase
-    //     end else begin
-    //         case (pe)
-    //             (-6'd13): priority_encode_zero = {3'b00, ze}-8'd0;
-    //             (-6'd12): priority_encode_zero = {3'b00, ze}+8'd1;
-    //             (-6'd11): priority_encode_zero = {3'b00, ze}-8'd2;
-    //             (-6'd10): priority_encode_zero = {3'b00, ze}-8'd3;
-    //             (-6'd9): priority_encode_zero =  {3'b00, ze}+8'd4;
-    //             (-6'd8): priority_encode_zero =  {3'b00, ze}+8'd5;
-    //             (-6'd7): priority_encode_zero =  {3'b00, ze}+8'd6;
-    //             (-6'd6): priority_encode_zero =  {3'b00, ze}+8'd7;
-    //             (-6'd5): priority_encode_zero =  {3'b00, ze}+8'd8;
-    //             (-6'd4): priority_encode_zero =  {3'b00, ze}+8'd9;
-    //             (-6'd3): priority_encode_zero =  {3'b00, ze}+8'd10;
-    //             (-6'd2): priority_encode_zero =  {3'b00, ze}+8'd11;
-    //             (-6'd1): priority_encode_zero =  {3'b00, ze}+8'd12;
-    //             default : priority_encode_zero = 4'bxxxx;
-    //         endcase
-    //     end
-    // end
-
-    // 13 in binary is 1101, inverted its 110011: 
-
+    // Z is Visible to the Adder
     always_comb begin
-        
         if      (pot_acnt[6])  z_visible = 1'b0;
         else if (pot_acnt==11) z_visible = |{zm_bf_shift[END_BITS+10:0]}; // all bits before this have to be 0
         else if (pot_acnt==12) z_visible = |{zm_bf_shift[END_BITS+11:0]};
@@ -201,44 +155,9 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         else if (pot_acnt==28) z_visible = |{zm_bf_shift[END_BITS+26:0]};
         else if (pot_acnt==29) z_visible = |{zm_bf_shift[END_BITS+27:0]};
         else                   z_visible = 1'b0; //  z_visible = ((ze!=0) | |zm);
-        
     end
 
-    logic [7:0] actual_difference;
-    assign actual_difference = {3'b0, xe} + {3'b0, ye} - 8'd15 - {3'b0, ze};
-
-    // logic z_is_solution;
-    assign z_is_solution = (big_z & (~actual_difference + 1'b1)>(8'd11));
-
-    logic [7:0] shift_amt;
-    assign shift_amt = (~actual_difference+1'b1);
-
-    logic shouldve_been_zero;
-    assign shouldve_been_zero = (big_z & ~(z_zero|x_zero|y_zero) & pe>=6'b110011); // (big_z&~(z_zero|x_zero|y_zero)) ? (pe[5] & ((~pe+1'b1)<6'd14) & ($unsigned(ze)>=(~pe+1'b1)) & (($unsigned(ze))<6'd19)) : '0; // ((~pe+1'b1)=={1'b0, ze});
-
-
-    /// (big_z) ? zm_bf_shift << 
-    assign am = (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : (big_z) ? (z_is_solution) ? zm_bf_shift : (zm_bf_shift << shift_amt) : zm_bf_shift >> pot_acnt; //(big_z) ? (zm_bf_shift << priority_encode_zero) : (pot_acnt[6]) ? zm_bf_shift << ( ~pot_acnt + 1'b1  ) : zm_bf_shift >> pot_acnt;
-    assign pm = (x_zero | y_zero | z_is_solution) ? '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
-    // assign pm = (x_zero | y_zero | (big_z&~z_zero)) ? (shouldve_been_zero) ? (mid_pm >> (ze-2)) : '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
-
-    logic neg_one_correction;
-    assign neg_one_correction = (($signed(pot_acnt))==7'd57);
-
-    // assign pm = (x_zero | y_zero | (big_z&~z_zero)) ? (shouldve_been_zero) ? (mid_pm >> (ze+2-neg_one_correction)) : '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
-    // assign pm = (x_zero | y_zero) : '0 : { {(VEC_SIZE-21-END_BITS){1'b0}}, mid_pm, {(END_BITS)'(1'b0)}};
-
-    //~pot_acnt[6]|(pe==-6'd13
-    assign product_greater = (pm==am)?1:(am>pm)?0:(am[VEC_SIZE:END_BITS]!='0)?1:(pe[5]&pe>{1'b0,ze})?0:1;   //(am!='0)?1:(pe>{1'b0, ze})?(~pe[5])?0:((pe==-6'd13)?0:1):0);
-    
-    logic pot_ms;
-    assign ms = (product_greater) ? ps : zs;
-
-
-    logic [7:0] pos_m_shift;
-    assign pos_m_shift = ~m_shift + 1;
-        // prod is visible if prior to m_shift, there is nothing in the bits between it and the end
-        // if we are able to see the product after shifting
+    // Product is Visible to the Adder
     always_comb begin
         if       (~(m_shift[7]))  prod_visible = 1'b0;
         else if (pos_m_shift==1)  prod_visible = |{pm[END_BITS-1:0]};
@@ -259,7 +178,7 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         else if (pos_m_shift==16) prod_visible = |{pm[END_BITS+14:0]};
         else if (pos_m_shift==17) prod_visible = |{pm[END_BITS+15:0]};
         else if (pos_m_shift==18) prod_visible = |{pm[END_BITS+16:0]};
-        else if (pos_m_shift==19) prod_visible = |{pm[END_BITS+17:0]}; // 20 bits of pm
+        else if (pos_m_shift==19) prod_visible = |{pm[END_BITS+17:0]};
         else if (pos_m_shift==20) prod_visible = |{pm[END_BITS+18:0]};
         else if (pos_m_shift==21) prod_visible = |{pm[END_BITS+19:0]};
         else if (pos_m_shift==22) prod_visible = |{pm[END_BITS+20:0]};
@@ -275,14 +194,6 @@ module fma16_align_and_sum  #(parameter VEC_SIZE, parameter END_BITS) (
         else                      prod_visible = 1'b0;
     end
 
-    // determine if we're going to need to subtract 1
-    fma16_sub_one #(VEC_SIZE, END_BITS) sub_one(.ps, .zs, .pe, .ze, .diff_pe_ze, .big_z, .z_is_solution, .zm, .x_zero, .y_zero, .z_zero, .am, .sm, .pm, .subtract_1);
-        
-    // sum am and pm together into sm
-    fma16_sum #(VEC_SIZE, END_BITS) sum(.pm, .am, .a_cnt(pot_acnt), .big_z, .diff_sign(~z_zero & (zs ^ ps)), .no_product, .z_zero, .sm); // Calculates the sum of the product and z mantissas
-
-    // determine how much to shift the mantissa in order to get the leading 1
-    fma16_mshifter #(VEC_SIZE, END_BITS) mshifter(.sm, .big_z, .a_cnt(pot_acnt), .diff_sign(~z_zero & (zs ^ ps)), .m_shift);
 
 
 

@@ -47,7 +47,7 @@ module fma16_round #(parameter VEC_SIZE, parameter END_BITS) (
             // round to even - if the LSB is 1, then we need to round to the nearest 0 (either up or down)
             2'b01: 
             begin
-                round_val = (G & (LSb | R | T)); // RNE has bug - S, ~O, ~LSb, G, ~R should be truncated
+                round_val = ~ms&LSb&G | G&R; // RNE has bug - S, ~O, ~LSb, G, ~R should be truncated
             end
             
             // round down (toward negative infinity) - we need to round down in every case

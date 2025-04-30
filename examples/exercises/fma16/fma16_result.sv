@@ -17,6 +17,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     input  logic              prod_visible,
 
     input  logic              big_z, z_is_solution, // if z is so big that it dwarfs the product, and also a check to make sure that -pe != ze (wrong size for pe)
+    input  logic              one_less_mshift,
     
     input  logic              zs, // sign of z
     input  logic [4:0]        ze, // exponent of z
@@ -36,8 +37,8 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     logic [7:0]        pos_m_shift;
     logic [9:0]        mm_rounded;
     logic [VEC_SIZE:0] mm;
-    logic [7:0]        sum_pe;
-    logic [7:0]        dif_pe;
+    logic [7:0]        sum_pe, prior_sum_pe;
+    logic [7:0]        dif_pe, prior_diff_pe;
 
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -58,8 +59,12 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
     // assign      mm_part = fin_mm[(END_BITS+19):(END_BITS+10)]; //((pe != 16) & pe[5] & ze[4] & (pe[4:0] < ze)) ? '0 : fin_mm[(END_BITS+19):(END_BITS+10)];
 
     // Used to find either the sum or the difference of the product and z mantissas; we want to add a positive shift
-    assign      sum_pe = { {2{pe[5]}}, pe} + pos_m_shift; // adding the additional conversions based off of however big of a shift we have
-    assign      dif_pe = { {2{pe[5]}}, pe} - m_shift;
+
+    assign      prior_sum_pe =  { {2{pe[5]}}, pe} + pos_m_shift; 
+    assign      prior_diff_pe =  { {2{pe[5]}}, pe} - m_shift;
+
+    assign      sum_pe = (|prior_sum_pe) ? prior_sum_pe : 5'b00001; // adding the additional conversions based off of however big of a shift we have
+    assign      dif_pe = (|prior_diff_pe) ? prior_sum_pe : 5'b00001;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Calculates Result Components
@@ -77,7 +82,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
         // 2. the product is subnormal
         // 3. the product is normal, but am was 0
     always_comb begin
-        if (pe == {1'b0, ze} & (mm == 0)) 
+        if (pe == {1'b0, ze} & (sm == 0)) 
         begin
             me = 0;
             mm = '0;
@@ -139,7 +144,7 @@ module fma16_result #(parameter VEC_SIZE, parameter END_BITS) (
 
         else
         begin
-                me = dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
+                me = (one_less_mshift) ? pe : dif_pe[4:0]; // 2's complement of m_cnt : (pe - m_shift);
                 mm = sm_shifted;
                 fix_z_vis = 0;
         end

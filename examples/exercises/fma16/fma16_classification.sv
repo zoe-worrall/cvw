@@ -39,13 +39,13 @@ module fma16_classification(
     assign z_inf = ((z==inf_val) | (z==neg_inf_val)) & add;
 
     // NaNs
-    assign x_nan = ((x[15:10]==6'b111_111) | (x[15:10]==6'b011_111) & ~x_inf);
-    assign y_nan = ((y[15:10]==6'b111_111) | (y[15:10]==6'b011_111) & ~y_inf) & mul;
-    assign z_nan = ((z[15:10]==6'b111_111) | (z[15:10]==6'b011_111) & ~z_inf) & add;
+    assign x_nan = (((x[15:10]==6'b111_111) | (x[15:10]==6'b011_111)) & ~x_inf);
+    assign y_nan = (((y[15:10]==6'b111_111) | (y[15:10]==6'b011_111)) & ~y_inf) & mul;
+    assign z_nan = (((z[15:10]==6'b111_111) | (z[15:10]==6'b011_111)) & ~z_inf) & add;
 
     // Assigning Signs, Exponents, and Mantissas for x, y, and z
     assign {xs, xe, xm} = x;
-    assign {ys, ye, ym} = (~mul) ? 16'h3c00 : y; // if adding, y should be itself
-    assign {zs, ze, zm} = (~add) ? 16'h0000 : z;
+    assign {ys, ye, ym} = (~mul) ? 16'h3c00 : (negp) ? { 1'b1^y[15], y[14:0] } : y; // if adding, y should be itself
+    assign {zs, ze, zm} = (~add) ? 16'h0000 : (negz) ? { 1'b1^z[15], z[14:0] } : z;
 
 endmodule

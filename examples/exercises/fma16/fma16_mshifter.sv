@@ -14,7 +14,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
 
         input  logic big_z,
         // input  logic [7:0] priority_encode_zero,
-
+        output logic              one_less_mshift,
         output logic [7:0]        m_shift // additional adjustment to find the first 1 in the array
     );
 
@@ -53,6 +53,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
     always_comb begin
         m_shift = 8'bxxxxxxx; // should be invalid if not set in this combination block
         flag = 1'b0;
+        one_less_mshift = 0;
 
         if (big_z) begin
             
@@ -214,6 +215,7 @@ module fma16_mshifter #(parameter VEC_SIZE, parameter END_BITS) (
                 else if (sm[END_BITS + 22])                    m_shift = -2;
                 else if (sm[END_BITS + 21])                    m_shift = -1;
                 else if (sm[END_BITS + 20])                    m_shift =  0;
+                else if (sm[END_BITS + 19])                    begin m_shift =  1; one_less_mshift = 1; end
             end
 
         end

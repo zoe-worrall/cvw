@@ -32,9 +32,10 @@ module testbench_fma16;
   // 3. harris_comp_fma_1_v_2
   // 4. combo_files_test
   // 5. harris_fma_special_rz
+  // 6. zoe_torture_mul
   initial
     begin
-      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\harris_fma_special_rz.tv", testvectors);
+      $readmemh("C:\\Mac\\Home\\Documents\\GitHub\\cvw\\examples\\exercises\\fma16\\work\\combo_files_test.tv", testvectors);
       vectornum = 0; errors = 0;
       reset = 1; #22; reset = 0;
     end

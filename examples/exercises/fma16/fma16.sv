@@ -76,9 +76,10 @@ module fma16(
     logic can_add, can_multiply; // whether the system can add / multiply
     logic no_product, z_visible, subtract_1, prod_visible; // if the product is zero/subnormal
     logic [1:0] which_nx; // whether the product or z is inexact ( [ z is inexact, product is inexact] )
-    logic [5:0] diff_count; // the difference between the exponents of the product and z
     
     logic product_greater;
+
+    logic one_less_mshift;
 
 
     // Final Variables (from the FMA algorithm); these are what are added/tell exactly what is being added
@@ -153,10 +154,11 @@ module fma16(
                                                         .a_cnt,   // exponent difference
                                                         .m_shift, // shift amount for leading 1's
 
-                                                        .which_nx, .diff_count, .subtract_1, .ms,
+                                                        .which_nx, .subtract_1, .ms,
                                                         .z_visible, .prod_visible,
 
                                                         .big_z, .z_is_solution,
+                                                        .one_less_mshift,
                                                         
                                                         .sm // which nx to use and the difference between the exponents
     );
@@ -192,6 +194,8 @@ module fma16(
                                                      .zs, .ze, .zm,  // the exponent and mantissa of z
                                                      .ps, .pe, .mid_pm,
 
+                                                     .one_less_mshift,
+
                                                      .big_z, .z_is_solution,
                                                      
                                                      // outputs (final result without taking errors into account)
@@ -226,6 +230,9 @@ module fma16(
     logic max_result;
     assign max_result = (mult[14:10]==5'b11111);
 
+    logic zero_result;
+    assign zero_result = (mult[14:0]=='0);
+
     logic max_input;
     assign max_input = (x==max_val) | (x==max_neg_val);
 
@@ -238,8 +245,11 @@ module fma16(
         f_nx = 0;
         f_nv = 0;
 
-        if (x_nan|y_nan|z_nan|x_inf|y_inf|z_inf|x_zero|y_zero|z_zero|max_result) begin
+        if (x_nan|y_nan|z_nan|x_inf|y_inf|z_inf|x_zero|y_zero|z_zero|max_result|zero_result) begin
             fix_flag = 1;
+            fix_result = mult;
+            
+            
             if (x_inf|y_inf|z_inf|max_result) begin
                 if (z_inf|z_nan) begin
                     if (z_inf)         begin fix_result = z; end
@@ -250,29 +260,72 @@ module fma16(
                                        begin fix_result = nan_val; f_nv = 1; end
                     end
                 end
+                else if (y_inf)        begin fix_result = y; end
                 else if (max_result)   begin fix_result = {ms, max_val[14:0]}; f_nv = 1; end
                 else                   begin fix_result = inf_val;  end
-            end else if (x_zero & y_zero & z_zero) begin
+            end 
+            
+            
+            else if (x_zero & y_zero & z_zero) begin
                 if ((zs&xs) ^ (zs&ys)) begin fix_result = neg_zero; end
                 else                   begin fix_result = '0; end
-            end else if ((x_zero|y_zero) & z_inf) begin
+            end 
+
+
+            else if ((x_zero|y_zero) & z_inf) begin
                 if (x_zero & y_zero)
-                                begin fix_result = nan_val; end
+                                       begin fix_result = nan_val; end
                 else
-                    if (x^y)       begin fix_result = z; end
-                    else if (xs)   begin fix_result = nan_val; end
-                    else           begin fix_result = nan_val; end
-            end else if (x_nan | y_nan | z_nan) 
-                                    begin fix_result = nan_val;  end
-                else if (x_zero & (y_inf | z_nan) | (y_zero) & (x_inf | z_nan))
-                                    begin fix_result = nan_val; end
-                else if (x_zero | y_zero) begin
-                    if (z_zero)        begin fix_result = {((xs^ys) & zs), 15'b0}; end
-                    else               begin fix_flag = 0; end
-            end else if (max_result)            
-                                       begin fix_result = max_val; f_nv = 1; end
-            
-            else                       begin fix_flag = 0; end
+                    if (x^y)           begin fix_result = z; end
+                    else if (xs)       begin fix_result = nan_val; end
+                    else               begin fix_result = nan_val; end
+            end 
+
+
+            else if (x_nan | y_nan | z_nan) begin 
+                        if (x_nan)      begin fix_result = x; end
+                        else if (y_nan) begin fix_result = y; end
+                        else            begin fix_result = z; end  
+            end
+
+
+            else if (x_zero & (y_inf | z_nan) | (y_zero) & (x_inf | z_nan))
+                                       begin fix_result = nan_val; end
+
+
+            else if (x_zero | y_zero)  begin
+                    if (z_zero)        begin 
+                                             fix_result = {((xs^ys) & zs), 15'b0}; 
+                    end else           begin fix_flag = { ((xs^ys) & zs), 15'b0 };  end
+            end 
+
+            else if (zero_result)      begin 
+                if (~x_zero & ~y_zero & ~z_zero)
+                                       begin fix_result = '0; end
+                else if(zs) begin
+                    if (ys) begin
+                        if (xs)        begin fix_result = '0 ; f_nx = 1;  end
+                        else           begin fix_result = 16'h8000 ; f_nx = 1;  end
+                    end else begin
+                        if (xs)        begin fix_result = (ms & ~(x_zero) & ~y_zero & ~z_zero) ? '0 : 16'h8000 ; f_nx = 1;  end
+                        else           begin fix_result = '0 ; f_nx = 1;  end
+                    end
+                end else begin
+                    if (ys) begin
+                        if (xs)        begin fix_result = '0; f_nx = 1;  end
+                        else           begin fix_result = 16'h8000 ; f_nx = 1;  end
+                    end else begin
+                        if (xs)        begin fix_result = 16'h8000 ; f_nx = 1;  end
+                        else           begin fix_result = '0; f_nx = 1;  end
+                    end
+                end
+                
+            end
+
+            else if (max_result)       begin fix_result = max_val; f_nv = 1; end
+
+
+            else                       begin fix_result = 16'hxxxx; fix_flag = 0; end
 
         end
     end
