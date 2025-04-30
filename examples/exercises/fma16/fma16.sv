@@ -183,7 +183,7 @@ module fma16(
     // Check to see (if inexact) how rounding might need to work
     logic error;
     logic raise_flag;
-    logic fma_nx;
+    logic fma_nxf;
     logic nv, of, uf, nx; // invalid, overflow, underflow, inexact
 
     fma16_result #(WIDTH, ENDING_ZEROS) calc_result( .sm,  // the sum of the product and addend mantissas
